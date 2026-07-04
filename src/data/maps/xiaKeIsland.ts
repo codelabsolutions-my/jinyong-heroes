@@ -44,4 +44,10 @@ export const xiaKeIsland: MapData = {
     "~~~~~~####~~~~~~~~####~~~~~~~~",
     "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
   ],
+  // 东侧大路尽头 → 后山小径
+  exits: [{ x: 27, y: 10, toMap: "houshan-path", toX: 2, toY: 8 }],
+  npcs: [
+    { npcId: "aniu", x: 12, y: 12 },
+    { npcId: "wang-dama", x: 7, y: 7 },
+  ],
 };

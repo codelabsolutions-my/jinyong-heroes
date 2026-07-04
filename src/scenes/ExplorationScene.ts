@@ -1,19 +1,31 @@
 import { Container, Text } from "pixi.js";
-import type { Input } from "@/core/Input";
+import { NpcSprite } from "@/entities/Npc";
 import { Player } from "@/entities/Player";
-import { type MapData, mapHeight, mapWidth } from "@/data/maps/types";
+import type { Direction } from "@/game/geometry";
+import { stepFrom } from "@/game/geometry";
+import { NPCS } from "@/data/npcs";
+import { canEnter } from "@/game/movement";
+import {
+  type MapData,
+  type NpcPlacement,
+  mapHeight,
+  mapWidth,
+  npcAt,
+} from "@/data/maps/types";
 import { TILE_SIZE, buildTileMapLayer } from "@/world/TileMap";
 
-/** 大地图/城镇探索场景：地图 + 主角逐格移动 + 摄像机跟随。 */
+/** 单张地图的探索视图：地形 + NPC + 主角 + 摄像机。模式与剧情由 core/Game 管。 */
 export class ExplorationScene {
   readonly view: Container;
+  readonly player: Player;
 
   private readonly world: Container;
-  private readonly player: Player;
 
   constructor(
-    private readonly map: MapData,
-    private readonly input: Input,
+    readonly map: MapData,
+    startX: number,
+    startY: number,
+    facing: Direction,
     private readonly screenWidth: number,
     private readonly screenHeight: number,
   ) {
@@ -23,24 +35,51 @@ export class ExplorationScene {
 
     this.world.addChild(buildTileMapLayer(map));
 
-    this.player = new Player(map.spawn.x, map.spawn.y);
+    for (const placement of map.npcs) {
+      const def = NPCS[placement.npcId];
+      if (!def) continue; // 数据完整性由内容测试保证
+      this.world.addChild(new NpcSprite(def, placement.x, placement.y).view);
+    }
+
+    this.player = new Player(startX, startY, facing);
     this.world.addChild(this.player.view);
 
     const label = new Text({
       text: map.name,
-      style: { fontFamily: "sans-serif", fontSize: 16, fill: 0xf0e6d2 },
+      style: {
+        fontFamily: "sans-serif",
+        fontSize: 16,
+        fill: 0xf0e6d2,
+        stroke: { color: 0x000000, width: 3 },
+      },
     });
     label.position.set(12, 10);
     this.view.addChild(label);
   }
 
-  update(deltaMS: number) {
-    const dir = this.input.direction;
-    if (dir && !this.player.isMoving) {
-      this.player.tryMove(dir, this.map);
-    }
-    this.player.update(deltaMS);
+  /** 阻挡规则在 game/movement（纯逻辑），这里只是接线 */
+  private isBlocked = (x: number, y: number): boolean =>
+    !canEnter(this.map, x, y);
+
+  tryMove(direction: Direction) {
+    this.player.tryMove(direction, this.isBlocked);
+  }
+
+  /** 主角面前一格的 NPC（对话目标） */
+  npcInFront(): NpcPlacement | null {
+    const { x, y } = stepFrom(
+      this.player.gridX,
+      this.player.gridY,
+      this.player.facing,
+    );
+    return npcAt(this.map, x, y);
+  }
+
+  /** 返回本帧是否刚走完一格 */
+  update(deltaMS: number): boolean {
+    const arrived = this.player.update(deltaMS);
     this.updateCamera();
+    return arrived;
   }
 
   /** 摄像机跟随主角，并夹在地图边界内 */
@@ -50,8 +89,8 @@ export class ExplorationScene {
 
     let camX = this.player.view.x + TILE_SIZE / 2 - this.screenWidth / 2;
     let camY = this.player.view.y + TILE_SIZE / 2 - this.screenHeight / 2;
-    camX = Math.max(0, Math.min(camX, worldW - this.screenWidth));
-    camY = Math.max(0, Math.min(camY, worldH - this.screenHeight));
+    camX = Math.max(0, Math.min(camX, Math.max(0, worldW - this.screenWidth)));
+    camY = Math.max(0, Math.min(camY, Math.max(0, worldH - this.screenHeight)));
 
     this.world.position.set(-Math.round(camX), -Math.round(camY));
   }

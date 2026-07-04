@@ -1,16 +1,8 @@
 import { Container, Graphics } from "pixi.js";
-import type { Direction } from "@/core/Input";
-import { type MapData, isWalkable } from "@/data/maps/types";
+import { DIRECTION_DELTA, type Direction } from "@/game/geometry";
 import { TILE_SIZE } from "@/world/TileMap";
 
 const MOVE_DURATION_MS = 180; // 走一格所需时间，对齐原版的逐格移动手感
-
-const DIRECTION_DELTA: Record<Direction, { dx: number; dy: number }> = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 },
-};
 
 /** 主角"小虾米"。逐格移动，移动中带插值，支持连续按键。 */
 export class Player {
@@ -29,9 +21,10 @@ export class Player {
   private toY = 0;
   private moveElapsed = 0;
 
-  constructor(spawnX: number, spawnY: number) {
+  constructor(spawnX: number, spawnY: number, facing: Direction = "down") {
     this.gridX = spawnX;
     this.gridY = spawnY;
+    this.facing = facing;
     this.view = new Container();
 
     // 占位形象：披蓝衣的小人，接入像素 spritesheet 后替换
@@ -47,14 +40,25 @@ export class Player {
     return this.moving;
   }
 
-  /** 尝试朝某方向走一格；被阻挡时只转向。 */
-  tryMove(direction: Direction, map: MapData) {
+  /** 瞬移（切地图/读档用），清掉移动插值。 */
+  teleport(x: number, y: number) {
+    this.moving = false;
+    this.gridX = x;
+    this.gridY = y;
+    this.view.position.set(x * TILE_SIZE, y * TILE_SIZE);
+  }
+
+  /**
+   * 尝试朝某方向走一格；被阻挡时只转向。
+   * 阻挡判定由调用方注入（地形 + NPC 占位等）。
+   */
+  tryMove(direction: Direction, isBlocked: (x: number, y: number) => boolean) {
     if (this.moving) return;
     this.facing = direction;
     const { dx, dy } = DIRECTION_DELTA[direction];
     const nx = this.gridX + dx;
     const ny = this.gridY + dy;
-    if (!isWalkable(map, nx, ny)) return;
+    if (isBlocked(nx, ny)) return;
 
     this.moving = true;
     this.moveElapsed = 0;
@@ -66,14 +70,19 @@ export class Player {
     this.gridY = ny;
   }
 
-  update(deltaMS: number) {
-    if (!this.moving) return;
+  /** 返回本帧是否刚好走完一格（到格瞬间做出口/遇敌检查用） */
+  update(deltaMS: number): boolean {
+    if (!this.moving) return false;
     this.moveElapsed += deltaMS;
     const t = Math.min(this.moveElapsed / MOVE_DURATION_MS, 1);
     this.view.position.set(
       this.fromX + (this.toX - this.fromX) * t,
       this.fromY + (this.toY - this.fromY) * t,
     );
-    if (t >= 1) this.moving = false;
+    if (t >= 1) {
+      this.moving = false;
+      return true;
+    }
+    return false;
   }
 }

@@ -1,7 +1,6 @@
 import { Application } from "pixi.js";
+import { Game } from "@/core/Game";
 import { Input } from "@/core/Input";
-import { ExplorationScene } from "@/scenes/ExplorationScene";
-import { xiaKeIsland } from "@/data/maps/xiaKeIsland";
 
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 640;
@@ -18,16 +17,19 @@ async function boot() {
   document.getElementById("app")!.appendChild(app.canvas);
 
   const input = new Input();
-  const scene = new ExplorationScene(
-    xiaKeIsland,
-    input,
-    GAME_WIDTH,
-    GAME_HEIGHT,
-  );
-  app.stage.addChild(scene.view);
+  const game = new Game(input, window.localStorage, GAME_WIDTH, GAME_HEIGHT);
+  app.stage.addChild(game.view);
 
   app.ticker.add((ticker) => {
-    scene.update(ticker.deltaMS);
+    game.update(ticker.deltaMS);
+  });
+
+  // e2e 验证脚本用的调试探针（scripts/verify-m1.mjs）
+  (window as unknown as Record<string, unknown>).__debug = () => ({
+    mode: game.mode,
+    player: { ...game.state.player },
+    clues: [...game.state.clues],
+    flags: { ...game.state.flags },
   });
 }
 

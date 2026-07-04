@@ -8,14 +8,32 @@ export interface TerrainDef {
   name: string;
 }
 
+/** 出入口：走上 (x, y) 这一格即切换到目标地图的 (toX, toY)。 */
+export interface ExitDef {
+  x: number;
+  y: number;
+  toMap: string;
+  toX: number;
+  toY: number;
+}
+
+/** NPC 在本地图上的摆放位置（NPC 定义在 src/data/npcs/） */
+export interface NpcPlacement {
+  npcId: string;
+  x: number;
+  y: number;
+}
+
 export interface MapData {
   id: string;
   name: string;
   /** 字符网格，每行等长，每个字符查 terrains 表 */
   grid: string[];
   terrains: Record<string, TerrainDef>;
-  /** 出生点（格子坐标） */
+  /** 新游戏出生点（格子坐标），仅起始地图使用 */
   spawn: { x: number; y: number };
+  exits: ExitDef[];
+  npcs: NpcPlacement[];
 }
 
 export function mapWidth(map: MapData): number {
@@ -40,4 +58,12 @@ export function terrainAt(
 
 export function isWalkable(map: MapData, x: number, y: number): boolean {
   return terrainAt(map, x, y)?.walkable ?? false;
+}
+
+export function exitAt(map: MapData, x: number, y: number): ExitDef | null {
+  return map.exits.find((e) => e.x === x && e.y === y) ?? null;
+}
+
+export function npcAt(map: MapData, x: number, y: number): NpcPlacement | null {
+  return map.npcs.find((n) => n.x === x && n.y === y) ?? null;
 }
