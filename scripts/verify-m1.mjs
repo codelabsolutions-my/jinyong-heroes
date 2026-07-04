@@ -100,9 +100,13 @@ try {
     JSON.stringify(d.player),
   );
 
-  // 5. 找扫地老人（15,10），站 (15,9) 面朝下
-  await steps(page, "ArrowRight", 13); // → (15,8)
-  await steps(page, "ArrowDown", 1); //   → (15,9)，被老人挡在 (15,10)
+  // 5. 找扫地老人（15,10）。绕过拦路强盗（8,8，M2 新增），走 row7 再回 row8。
+  await steps(page, "ArrowRight", 5); // (2,8)→(7,8)，强盗挡在 (8,8)
+  await steps(page, "ArrowUp", 1); //   →(7,7)
+  await steps(page, "ArrowRight", 5); // →(12,7)，水 (13,7) 挡路
+  await steps(page, "ArrowDown", 1); //  →(12,8)
+  await steps(page, "ArrowRight", 3); // →(15,8)
+  await steps(page, "ArrowDown", 1); //  →(15,9)，被老人挡在 (15,10)
   await page.keyboard.press("ArrowDown"); // 转向
   await sleep(250);
   await page.keyboard.press("Space");

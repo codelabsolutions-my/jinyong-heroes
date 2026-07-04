@@ -22,4 +22,10 @@ export const NPCS: Record<string, NpcDef> = {
     color: 0x9c9c9c,
     dialogueId: "sweeper",
   },
+  bandit: {
+    id: "bandit",
+    name: "拦路强盗",
+    color: 0x9c5a3a,
+    dialogueId: "bandit",
+  },
 };

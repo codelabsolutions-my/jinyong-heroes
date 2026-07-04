@@ -4,6 +4,9 @@ import { exitAt, isWalkable, mapWidth, npcAt } from "../maps/types";
 import { NPCS } from "../npcs";
 import { DIALOGUES } from "../dialogues";
 import { CLUES } from "../clues";
+import { SKILLS } from "../skills";
+import { CHARACTERS } from "../characters";
+import { ENCOUNTERS } from "../battles";
 import type { Effect } from "@/game/dialogue";
 
 /** 内容完整性：所有跨文件引用（地图↔NPC↔对话↔线索）不允许坏链。 */
@@ -96,6 +99,17 @@ describe("npcs / dialogues / clues", () => {
     }
   });
 
+  it("every startBattle effect references a defined encounter", () => {
+    for (const effect of allEffects()) {
+      if (effect.type === "startBattle") {
+        expect(
+          ENCOUNTERS[effect.battleId],
+          `未知遭遇 ${effect.battleId}`,
+        ).toBeDefined();
+      }
+    }
+  });
+
   it("clue record keys match their ids", () => {
     for (const [key, def] of Object.entries(CLUES)) {
       expect(def.id).toBe(key);
@@ -144,4 +158,77 @@ describe("npcs / dialogues / clues", () => {
       }
     }
   });
+});
+
+describe("skills / characters / encounters", () => {
+  it("record keys match their ids", () => {
+    for (const [key, s] of Object.entries(SKILLS)) expect(s.id).toBe(key);
+    for (const [key, c] of Object.entries(CHARACTERS)) expect(c.id).toBe(key);
+    for (const [key, e] of Object.entries(ENCOUNTERS)) expect(e.id).toBe(key);
+  });
+
+  it("every character skill references a defined skill", () => {
+    for (const c of Object.values(CHARACTERS)) {
+      for (const skillId of c.skills) {
+        expect(
+          SKILLS[skillId],
+          `角色 ${c.id} → 未知武学 ${skillId}`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  it("skill ranges are >= 1", () => {
+    for (const s of Object.values(SKILLS)) {
+      expect(s.range, `武学 ${s.id} range 须 ≥1`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  for (const enc of Object.values(ENCOUNTERS)) {
+    describe(enc.id, () => {
+      const { grid, terrains } = enc.field;
+      const w = grid[0]?.length ?? 0;
+      const h = grid.length;
+      const walkable = (x: number, y: number) =>
+        terrains[grid[y]?.[x] ?? ""]?.walkable ?? false;
+
+      it("战场网格等宽且字符都有地形定义", () => {
+        for (const row of grid) {
+          expect(row.length).toBe(w);
+          for (const ch of row) {
+            expect(terrains[ch], `'${ch}' 无地形定义`).toBeDefined();
+          }
+        }
+      });
+
+      it("敌方 charId 都存在", () => {
+        for (const e of enc.enemies) {
+          expect(CHARACTERS[e.charId], `未知敌方 ${e.charId}`).toBeDefined();
+        }
+      });
+
+      it("出生点与敌位都在界内、可站、不重叠", () => {
+        const seen = new Set<string>();
+        const positions = [
+          ...enc.allySpawns.map((s) => ({ x: s.x, y: s.y, who: "ally" })),
+          ...enc.enemies.map((e) => ({ x: e.x, y: e.y, who: e.charId })),
+        ];
+        for (const p of positions) {
+          expect(
+            p.x >= 0 && p.x < w && p.y >= 0 && p.y < h,
+            `${p.who} 越界`,
+          ).toBe(true);
+          expect(walkable(p.x, p.y), `${p.who} 站在不可走格`).toBe(true);
+          const key = `${p.x},${p.y}`;
+          expect(seen.has(key), `位置重叠 ${key}`).toBe(false);
+          seen.add(key);
+        }
+      });
+
+      it("至少 1 名敌人、1 个我方出生点", () => {
+        expect(enc.enemies.length).toBeGreaterThan(0);
+        expect(enc.allySpawns.length).toBeGreaterThan(0);
+      });
+    });
+  }
 });

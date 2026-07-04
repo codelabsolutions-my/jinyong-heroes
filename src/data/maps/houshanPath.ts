@@ -35,5 +35,8 @@ export const houshanPath: MapData = {
   ],
   // 西侧路口 → 回无名小村
   exits: [{ x: 0, y: 8, toMap: "xiake-island", toX: 26, toY: 10 }],
-  npcs: [{ npcId: "sweeper", x: 15, y: 10 }],
+  npcs: [
+    { npcId: "bandit", x: 8, y: 8 }, // 拦在进山路上，触发 M2 教学战
+    { npcId: "sweeper", x: 15, y: 10 },
+  ],
 };

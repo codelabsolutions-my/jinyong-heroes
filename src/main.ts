@@ -24,12 +24,13 @@ async function boot() {
     game.update(ticker.deltaMS);
   });
 
-  // e2e 验证脚本用的调试探针（scripts/verify-m1.mjs）
+  // e2e 验证脚本用的调试探针（scripts/verify-m1.mjs、verify-m2.mjs）
   (window as unknown as Record<string, unknown>).__debug = () => ({
     mode: game.mode,
     player: { ...game.state.player },
     clues: [...game.state.clues],
     flags: { ...game.state.flags },
+    battle: game.battleSnapshot(),
   });
 }
 

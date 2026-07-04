@@ -1,5 +1,6 @@
 import { Container } from "pixi.js";
 import type { Input } from "./Input";
+import { BattleController } from "./BattleController";
 import { ExplorationScene } from "@/scenes/ExplorationScene";
 import { DialogueBox } from "@/ui/DialogueBox";
 import { HintBar } from "@/ui/HintBar";
@@ -8,9 +9,13 @@ import { Toast } from "@/ui/Toast";
 import { CLUES } from "@/data/clues";
 import { DIALOGUES } from "@/data/dialogues";
 import { NPCS } from "@/data/npcs";
+import { CHARACTERS } from "@/data/characters";
+import { SKILLS } from "@/data/skills";
+import { ENCOUNTERS } from "@/data/battles";
 import { MAPS, START_MAP_ID, getMap } from "@/data/maps";
 import { exitAt } from "@/data/maps/types";
 import { canEnter } from "@/game/movement";
+import { setupBattle } from "@/game/battle/setup";
 import {
   type ActiveDialogue,
   advanceDialogue,
@@ -18,9 +23,13 @@ import {
   startDialogue,
 } from "@/game/dialogue";
 import { SaveLoadError, type KVStorage, loadGame, saveGame } from "@/game/save";
-import { type GameState, newGame } from "@/game/state";
+import { type GameState, newGame, setFlag } from "@/game/state";
 
-export type GameMode = "explore" | "dialogue" | "journal";
+export type GameMode = "explore" | "dialogue" | "journal" | "battle";
+
+/** 胜利后置的 flag 约定（对话变体据此不再重复触发同一场战斗） */
+export const battleWonFlag = (battleId: string): string =>
+  `battle-won:${battleId}`;
 
 const EXPLORE_HINT = "空格 对话 · J 日志 · K 存档 · L 读档";
 
@@ -41,6 +50,8 @@ export class Game {
   private readonly toast: Toast;
   private readonly hintBar: HintBar;
   private activeDialogue: ActiveDialogue | null = null;
+  private battle: BattleController | null = null;
+  private battleId: string | null = null;
 
   constructor(
     private readonly input: Input,
@@ -89,18 +100,19 @@ export class Game {
   }
 
   update(deltaMS: number) {
-    // 到格与出口检查集中在这里，任何模式下都不吞：
-    // 哪怕一步走到一半时开了菜单/对话，落格后出口照样触发。
-    const arrived = this.scene.update(deltaMS);
-    if (arrived) {
-      this.syncPlayerState();
-      const exit = exitAt(
-        this.scene.map,
-        this.scene.player.gridX,
-        this.scene.player.gridY,
-      );
-      if (exit) {
-        this.switchMap(exit.toMap, exit.toX, exit.toY);
+    // 探索场景的到格/出口检查只在非战斗模式跑（战斗时主角不在大地图上移动）。
+    if (this.mode !== "battle") {
+      const arrived = this.scene.update(deltaMS);
+      if (arrived) {
+        this.syncPlayerState();
+        const exit = exitAt(
+          this.scene.map,
+          this.scene.player.gridX,
+          this.scene.player.gridY,
+        );
+        if (exit) {
+          this.switchMap(exit.toMap, exit.toX, exit.toY);
+        }
       }
     }
 
@@ -113,6 +125,9 @@ export class Game {
         break;
       case "journal":
         this.updateJournal();
+        break;
+      case "battle":
+        this.updateBattle(deltaMS);
         break;
     }
     this.toast.update(deltaMS);
@@ -154,19 +169,91 @@ export class Game {
       if (result.done) {
         this.dialogueBox.hide();
         this.activeDialogue = null;
-        this.mode = "explore";
-        this.hintBar.set(EXPLORE_HINT);
         if (result.newClues.length > 0) {
           const titles = result.newClues
             .map((id) => CLUES[id]?.title ?? id)
             .join("、");
           this.toast.show(`获得线索：「${titles}」`);
         }
+        if (result.startBattle) {
+          this.enterBattle(result.startBattle);
+        } else {
+          this.mode = "explore";
+          this.hintBar.set(EXPLORE_HINT);
+        }
       } else {
         const line = currentLine(this.activeDialogue);
         this.dialogueBox.show(line.speaker, line.text);
       }
     }
+  }
+
+  private updateBattle(deltaMS: number) {
+    if (!this.battle) return;
+    this.battle.update(deltaMS);
+    const outcome = this.battle.result;
+    if (outcome) this.endBattle(outcome);
+  }
+
+  private enterBattle(battleId: string) {
+    const encounter = ENCOUNTERS[battleId];
+    if (!encounter) {
+      // 数据完整性由 content.test 保证；运行时容错回探索
+      this.mode = "explore";
+      this.hintBar.set(EXPLORE_HINT);
+      return;
+    }
+    const player = CHARACTERS["player"]!;
+    try {
+      const state = setupBattle({
+        encounter,
+        party: [player],
+        characterTable: CHARACTERS,
+        skillTable: SKILLS,
+        seed: Math.floor(Math.random() * 0x7fffffff),
+      });
+      this.battle = new BattleController(
+        this.input,
+        state,
+        this.screenWidth,
+        this.screenHeight,
+      );
+    } catch (err) {
+      // 遭遇数据有坏链（应被 content.test 拦下）；运行时兜底回探索，不冻死循环
+      console.error("battle setup failed", err);
+      this.mode = "explore";
+      this.hintBar.set(EXPLORE_HINT);
+      return;
+    }
+    this.battleId = battleId;
+
+    // 隐藏探索层，显示战斗层（toast 保持在最上）
+    this.worldSlot.visible = false;
+    this.hintBar.view.visible = false;
+    this.view.addChild(this.battle.view);
+    this.view.setChildIndex(this.toast.view, this.view.children.length - 1);
+    this.mode = "battle";
+  }
+
+  private endBattle(outcome: "victory" | "defeat") {
+    if (this.battle) {
+      this.view.removeChild(this.battle.view);
+      this.battle = null;
+    }
+    this.worldSlot.visible = true;
+    this.hintBar.view.visible = true;
+    this.hintBar.set(EXPLORE_HINT);
+    this.mode = "explore";
+
+    if (outcome === "victory") {
+      if (this.battleId) setFlag(this.state, battleWonFlag(this.battleId));
+      this.toast.show("旗开得胜！");
+    } else {
+      // 战败：**不动存档、不重置进度**——退回探索原地，玩家可再挑战（胜利 flag 未置）。
+      // 战败读档/死亡惩罚等留到 M3（有持久队伍状态时再设计），避免这里静默丢档。
+      this.toast.show("战败……重整旗鼓，再来！");
+    }
+    this.battleId = null;
   }
 
   private updateJournal() {
@@ -232,5 +319,10 @@ export class Game {
     this.state.player.x = this.scene.player.gridX;
     this.state.player.y = this.scene.player.gridY;
     this.state.player.facing = this.scene.player.facing;
+  }
+
+  /** e2e / 调试探针：当前战斗快照（非战斗时为 null） */
+  battleSnapshot() {
+    return this.battle?.debugSnapshot() ?? null;
   }
 }

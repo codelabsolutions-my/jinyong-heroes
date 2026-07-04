@@ -81,4 +81,30 @@ export const DIALOGUES: Record<string, Dialogue> = {
       { type: "setFlag", flag: "met-sweeper" },
     ],
   },
+
+  bandit: {
+    id: "bandit",
+    // 胜利后 Game 置 flag `battle-won:houshan-bandits`（见 core/Game.ts 约定），
+    // 变体在此接住，不再重复触发战斗。
+    variants: [
+      {
+        when: { hasFlag: "battle-won:houshan-bandits" },
+        lines: [
+          {
+            speaker: "拦路强盗",
+            text: "好汉饶命！小的再也不敢拦路了……",
+          },
+        ],
+      },
+    ],
+    lines: [
+      {
+        speaker: "拦路强盗",
+        text: "此山是我开，此树是我栽！要打此路过，留下买路财！",
+      },
+      { speaker: "小虾米", text: "我身无分文，倒是可以奉陪几招。" },
+      { speaker: "拦路强盗", text: "敬酒不吃吃罚酒！兄弟们，上！" },
+    ],
+    effects: [{ type: "startBattle", battleId: "houshan-bandits" }],
+  },
 };

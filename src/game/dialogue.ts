@@ -10,7 +10,9 @@ export interface DialogueLine {
 }
 
 export type Effect =
-  { type: "grantClue"; clueId: string } | { type: "setFlag"; flag: string };
+  | { type: "grantClue"; clueId: string }
+  | { type: "setFlag"; flag: string }
+  | { type: "startBattle"; battleId: string };
 
 export interface DialogueVariant {
   when: Condition;
@@ -67,6 +69,8 @@ export interface AdvanceResult {
   done: boolean;
   /** 对话结束时新获得的线索 id（去重后），UI 用来弹提示 */
   newClues: string[];
+  /** 对话结束时要触发的战斗 id（若有），Game 据此进入战斗模式 */
+  startBattle?: string;
 }
 
 /** 推进一句；走完最后一句时应用 effects 并返回 done。 */
@@ -79,12 +83,15 @@ export function advanceDialogue(
     return { done: false, newClues: [] };
   }
   const newClues: string[] = [];
+  let startBattle: string | undefined;
   for (const effect of active.effects) {
     if (effect.type === "grantClue") {
       if (grantClue(state, effect.clueId)) newClues.push(effect.clueId);
     } else if (effect.type === "setFlag") {
       setFlag(state, effect.flag);
+    } else if (effect.type === "startBattle") {
+      startBattle = effect.battleId;
     }
   }
-  return { done: true, newClues };
+  return { done: true, newClues, startBattle };
 }
