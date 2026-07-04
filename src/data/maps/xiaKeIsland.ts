@@ -49,5 +49,7 @@ export const xiaKeIsland: MapData = {
   npcs: [
     { npcId: "aniu", x: 12, y: 12 },
     { npcId: "wang-dama", x: 7, y: 7 },
+    // 射雕线点火 NPC：出生点 (12,14) 右侧两格，避开 M1/M2 e2e 的"先上行"路径
+    { npcId: "storyteller", x: 14, y: 14 },
   ],
 };

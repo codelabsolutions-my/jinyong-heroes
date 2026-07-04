@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enemyTurnActions } from "../ai";
+import { allyAutoTurnActions, autoTurnActions, enemyTurnActions } from "../ai";
 import { battle, combatant, field } from "./fixtures";
 
 describe("enemyTurnActions", () => {
@@ -82,5 +82,67 @@ describe("enemyTurnActions", () => {
     const state = battle([enemy, deadAlly]);
     state.activeId = "enemy-0";
     expect(enemyTurnActions(state)).toEqual([{ type: "wait" }]);
+  });
+
+  it("行动者非敌方时敌方 AI 待机（守卫）", () => {
+    const ally = combatant({ id: "ally-guojing", side: "ally", x: 3, y: 3 });
+    const enemy = combatant({ id: "enemy-0", side: "enemy", x: 3, y: 4 });
+    const state = battle([ally, enemy]);
+    state.activeId = "ally-guojing";
+    expect(enemyTurnActions(state)).toEqual([{ type: "wait" }]);
+  });
+});
+
+describe("友方 AI（剧情战友军）", () => {
+  it("战友相邻敌人则攻击敌方（对方阵营）", () => {
+    const guojing = combatant({ id: "ally-guojing", side: "ally", x: 3, y: 3 });
+    const player = combatant({ id: "player", side: "ally", x: 0, y: 0 });
+    const enemy = combatant({ id: "enemy-0", side: "enemy", x: 3, y: 4 });
+    const state = battle([guojing, player, enemy]);
+    state.activeId = "ally-guojing";
+    expect(allyAutoTurnActions(state)).toEqual([
+      { type: "attack", targetId: "enemy-0" },
+    ]);
+  });
+
+  it("战友远离敌人则朝最近敌人移动", () => {
+    const guojing = combatant({
+      id: "ally-guojing",
+      side: "ally",
+      x: 1,
+      y: 4,
+      move: 4,
+    });
+    const enemy = combatant({ id: "enemy-0", side: "enemy", x: 8, y: 4 });
+    const state = battle([guojing, enemy]);
+    state.activeId = "ally-guojing";
+    const actions = allyAutoTurnActions(state);
+    expect(actions[0]!.type).toBe("move");
+    const move = actions[0] as { type: "move"; to: { x: number; y: number } };
+    expect(move.to).toEqual({ x: 5, y: 4 }); // 从 x=1 向 x=8 走 4 格
+  });
+
+  it("行动者非 ally 时友方 AI 待机（守卫）", () => {
+    const enemy = combatant({ id: "enemy-0", side: "enemy", x: 3, y: 3 });
+    const ally = combatant({ id: "player", side: "ally", x: 3, y: 4 });
+    const state = battle([enemy, ally]);
+    state.activeId = "enemy-0";
+    expect(allyAutoTurnActions(state)).toEqual([{ type: "wait" }]);
+  });
+
+  it("autoTurnActions 按行动者阵营锁定对方为目标", () => {
+    // ally 行动者 → 目标是 enemy；相邻则攻击
+    const ally = combatant({ id: "ally-guojing", side: "ally", x: 2, y: 2 });
+    const enemy = combatant({ id: "enemy-0", side: "enemy", x: 2, y: 3 });
+    const state = battle([ally, enemy]);
+    state.activeId = "ally-guojing";
+    expect(autoTurnActions(state)).toEqual([
+      { type: "attack", targetId: "enemy-0" },
+    ]);
+    // enemy 行动者 → 目标是 ally
+    state.activeId = "enemy-0";
+    expect(autoTurnActions(state)).toEqual([
+      { type: "attack", targetId: "ally-guojing" },
+    ]);
   });
 });

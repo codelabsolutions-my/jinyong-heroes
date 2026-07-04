@@ -76,6 +76,32 @@
 - **战败处理（M2）**：退回探索原地、**保留全部进度**（胜利 flag 未置，可再挑战）。
   不做"团灭读档/死亡惩罚"——那需要持久队伍状态与检查点设计，留到 M3+（见 ADR #16）。
 
+## 4A. 剧情事件链 · 战斗奖励 · 天书（M3 已实现）
+
+- **剧情事件链**（`src/game/story/`，ADR #17）：`StoryEvent{id,trigger,steps}`，`Step` 联合
+  = `dialogue|choice|battle|setFlag|grantClue|grantBook|gainExp|learnSkill|goto|end`。
+  runner 是纯函数：推进 step 游标、`choice` 按 `Condition` 选分支（**全分支不满足即 fail-fast，
+  不静默卡死**）、`battle` 的胜/败回喂决定 `onWin/onLose` 走向、`goto` 跳转（带死循环守护）。
+  加一条线只写 `src/data/story/` 数据，不改 runner。
+- **战斗扩展**（ADR #19，全部向后兼容、M2 行为不变）：
+  - `BattleObjective.surviveRounds`——「打不过也能过」：我方存活满 N 回合即判胜（歼灭优先）。
+  - `encounter.allies`——剧情战友军（郭靖/黄蓉）以 ally 侧登场，`id` 前缀 `ally-`。
+  - side 无关 `autoTurnActions`——敌方与非玩家 ally（战友军）共用确定性趋近-攻击 AI；
+    `BattleController.playerIds` 只让玩家亲操的单位走交互回合（M3 简化：友方 AI 只用普攻）。
+- **养成/奖励**（`src/game/progression.ts`，ADR #18）：历练升级 `所需=100×lv^1.5`（上限 30）、
+  武学熟练 `20×lv`（上限 10，+10%/级）、读秘籍解锁+直升 3 级；`grantBook` 幂等。
+  只落盘 `exp`/熟练点数，等级由曲线反推。战斗/剧情奖励经 `applyStoryEffects` 落到 `GameState`。
+- **存档 v1→v2**（ADR #18）：`GameState` 加 `books:string[]` + `progress`（角色历练/熟练度）；
+  `SAVE_VERSION` 1→2，旧档逐级迁移补默认值，未来版本明确报错（never 静默丢档）。
+- **十四天书**（`src/data/books/`）：回目诗序位「飞雪连天射白鹿，笑书神侠倚碧鸳」14 部，
+  = 各线最终章 `grantBook` 奖励；「江湖手札」面板天书分册，已得高亮、未得显示入口线索。
+- **剧情播放**（`core/Game.ts`，ADR #20）：探索中入口 flag 命中即 `selectTriggeredEvent` 点火，
+  `runEvent` 循环——对话复用对话框、战斗复用 `setupBattle`+`BattleController` 并回喂胜负、
+  奖励 `applyStoryEffects`（弹天书/升级提示）、`end` 落幕存档。剧情战不置 `battleWonFlag`。
+- **M3 刻意简化**（ADR #21，M4 补齐）：射雕线以**对话+战斗叠加演出**，牛家村/华山地图已建但
+  暂不可步行抵达，播放期玩家仍站在无名小村；地图行走 + 过场切图（`switchMap` 步骤）留到 M4。
+  友方 AI 只用普攻（黄蓉「计策」等增益/减益技能待 M4 引擎支持）。
+
 ## 5. 数据驱动的内容格式
 
 全部内容在 `src/data/` 下（CLAUDE.md §5.2）：
@@ -83,21 +109,21 @@
 - `maps/` — 地图（字符网格 + 地形表 + 出入口 + NPC 摆放）
 - `characters/` — 人物：属性、武学、招募条件、羁绊
 - `skills/` — 武学：系别、威力、范围、升级曲线
-- `story/` — 剧情事件：`{ id, trigger: Condition, steps: [dialogue|choice|battle|reward|setFlag] }`
-- `books/` — 十四天书的获取路径定义
+- `story/` — 剧情事件：`{ id, trigger: Condition, steps: [dialogue|choice|battle|grantBook|gainExp|learnSkill|setFlag|grantClue|goto|end] }`（M3 已实现，见 §4A）
+- `books/` — 十四天书的获取路径定义（M3 已实现）
 
 `Condition` 是声明式的：`{ flag, minMorality, hasCompanion, bookCount, … }` 组合，由 ConditionEvaluator 统一求值。
 
 ## 6. 里程碑
 
-| #   | 名称        | 可玩验收标准                                                |
-| --- | ----------- | ----------------------------------------------------------- |
-| M0  | 走起来 ✅   | 浏览器里逐格走一张占位地图，碰撞正确                        |
-| M1  | 江湖骨架 ✅ | 多地图切换、NPC 对话、任务日志、存档/读档                   |
-| M2  | 第一场架 ✅ | 完整战棋战斗：行动序、三系克制、胜负结算回探索              |
-| M3  | 第一部天书  | 一条完整小说线（建议《射雕》片段）：剧情→战斗→招募→拿到天书 |
-| M4  | 江湖成形    | 正邪值+门派声望生效、3 条小说线、多队友、武学升级           |
-| M5  | 纵向切片    | 从开局玩到 1 个结局的完整最小流程 + 像素素材替换占位块      |
+| #   | 名称          | 可玩验收标准                                                                                             |
+| --- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| M0  | 走起来 ✅     | 浏览器里逐格走一张占位地图，碰撞正确                                                                     |
+| M1  | 江湖骨架 ✅   | 多地图切换、NPC 对话、任务日志、存档/读档                                                                |
+| M2  | 第一场架 ✅   | 完整战棋战斗：行动序、三系克制、胜负结算回探索                                                           |
+| M3  | 第一部天书 ✅ | 射雕线（1、3 章）：说书先生点火→黄河四鬼战（郭靖并肩）→欧阳锋战（撑回合胜）→洪七公授天书，books/历练进档 |
+| M4  | 江湖成形      | 正邪值+门派声望生效、3 条小说线、多队友、武学升级；牛家村/华山地图行走（switchMap）、黄蓉计策类增益技    |
+| M5  | 纵向切片      | 从开局玩到 1 个结局的完整最小流程 + 像素素材替换占位块                                                   |
 
 ## 7. 参考
 

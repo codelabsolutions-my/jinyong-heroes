@@ -7,6 +7,9 @@ import { CLUES } from "../clues";
 import { SKILLS } from "../skills";
 import { CHARACTERS } from "../characters";
 import { ENCOUNTERS } from "../battles";
+import { BOOKS } from "../books";
+import { STORY_EVENTS } from "../story";
+import { collectStepRefs } from "@/game/story/runner";
 import type { Effect } from "@/game/dialogue";
 
 /** 内容完整性：所有跨文件引用（地图↔NPC↔对话↔线索）不允许坏链。 */
@@ -201,16 +204,20 @@ describe("skills / characters / encounters", () => {
         }
       });
 
-      it("敌方 charId 都存在", () => {
+      it("敌方 / 战友军 charId 都存在", () => {
         for (const e of enc.enemies) {
           expect(CHARACTERS[e.charId], `未知敌方 ${e.charId}`).toBeDefined();
         }
+        for (const a of enc.allies ?? []) {
+          expect(CHARACTERS[a.charId], `未知战友 ${a.charId}`).toBeDefined();
+        }
       });
 
-      it("出生点与敌位都在界内、可站、不重叠", () => {
+      it("出生点/敌位/战友位都在界内、可站、不重叠", () => {
         const seen = new Set<string>();
         const positions = [
           ...enc.allySpawns.map((s) => ({ x: s.x, y: s.y, who: "ally" })),
+          ...(enc.allies ?? []).map((a) => ({ x: a.x, y: a.y, who: a.charId })),
           ...enc.enemies.map((e) => ({ x: e.x, y: e.y, who: e.charId })),
         ];
         for (const p of positions) {
@@ -228,6 +235,62 @@ describe("skills / characters / encounters", () => {
       it("至少 1 名敌人、1 个我方出生点", () => {
         expect(enc.enemies.length).toBeGreaterThan(0);
         expect(enc.allySpawns.length).toBeGreaterThan(0);
+      });
+    });
+  }
+});
+
+describe("story events 引用完整性", () => {
+  it("record 的 id 唯一", () => {
+    const ids = STORY_EVENTS.map((e) => e.id);
+    expect(new Set(ids).size, `事件 id 有重复：${ids.join()}`).toBe(ids.length);
+  });
+
+  for (const event of STORY_EVENTS) {
+    describe(event.id, () => {
+      const stepIds = new Set(
+        event.steps.map((s) => s.id).filter((x): x is string => !!x),
+      );
+
+      it("跳转目标(goto/onWin/onLose/choice)都指向存在的 step id", () => {
+        for (const ref of collectStepRefs(event)) {
+          expect(stepIds.has(ref), `${event.id}: 坏跳转目标 ${ref}`).toBe(true);
+        }
+      });
+
+      it("dialogue/battle/grantBook/learnSkill 的引用都存在", () => {
+        for (const step of event.steps) {
+          if (step.kind === "dialogue") {
+            expect(
+              DIALOGUES[step.dialogueId],
+              `${event.id}: 未知对话 ${step.dialogueId}`,
+            ).toBeDefined();
+          } else if (step.kind === "battle") {
+            expect(
+              ENCOUNTERS[step.battleId],
+              `${event.id}: 未知遭遇 ${step.battleId}`,
+            ).toBeDefined();
+          } else if (step.kind === "grantBook") {
+            expect(
+              BOOKS[step.bookId],
+              `${event.id}: 未知天书 ${step.bookId}`,
+            ).toBeDefined();
+          } else if (step.kind === "learnSkill") {
+            expect(
+              SKILLS[step.skillId],
+              `${event.id}: 未知武学 ${step.skillId}`,
+            ).toBeDefined();
+          } else if (step.kind === "gainExp") {
+            expect(step.amount, `${event.id}: gainExp 须为正`).toBeGreaterThan(
+              0,
+            );
+          }
+        }
+      });
+
+      it("以 end 或跳转终止（存在 end 步或最后一步是 goto/battle 分支）", () => {
+        const hasEnd = event.steps.some((s) => s.kind === "end");
+        expect(hasEnd, `${event.id}: 建议显式 end 步`).toBe(true);
       });
     });
   }

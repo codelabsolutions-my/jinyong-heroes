@@ -80,6 +80,14 @@ export function setupBattle(input: SetupInput): BattleState {
       makeCombatant(def, "ally", def.id, spawn.x, spawn.y, skillTable),
     );
   });
+  // 剧情战友军（郭靖/黄蓉等）：ally 侧，固定坐标，id 前缀 ally- 避免与队伍撞
+  (encounter.allies ?? []).forEach((a) => {
+    const def = characterTable[a.charId];
+    if (!def) throw new Error(`setup: 未知战友 charId ${a.charId}`);
+    combatants.push(
+      makeCombatant(def, "ally", `ally-${a.charId}`, a.x, a.y, skillTable),
+    );
+  });
   encounter.enemies.forEach((e, i) => {
     const def = characterTable[e.charId];
     if (!def) throw new Error(`setup: 未知敌方 charId ${e.charId}`);
@@ -99,6 +107,8 @@ export function setupBattle(input: SetupInput): BattleState {
     activeId: null,
     turnMoved: false,
     outcome: "ongoing",
+    // 深拷贝，避免别名到共享的 ENCOUNTERS 数据
+    objective: encounter.objective ? { ...encounter.objective } : undefined,
     log: [{ text: `${encounter.name}——战斗开始！` }],
   };
 

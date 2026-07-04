@@ -54,14 +54,19 @@ export function loadGame(
     throw new SaveLoadError("存档数据损坏（结构不对）");
   }
 
-  if (parsed.version !== SAVE_VERSION) {
-    // 未来版本升级在这里加迁移分支：vN → vN+1 逐级升
+  if (typeof parsed.version !== "number" || !Number.isInteger(parsed.version)) {
+    throw new SaveLoadError("存档数据损坏（version 字段无效）");
+  }
+  if (parsed.version > SAVE_VERSION) {
+    // 比游戏更新的存档：无法降级，明确报错，never 静默丢档
     throw new SaveLoadError(
-      `存档版本不兼容（存档 v${String(parsed.version)}，游戏 v${SAVE_VERSION}）`,
+      `存档版本不兼容（存档 v${parsed.version}，游戏 v${SAVE_VERSION}）`,
     );
   }
+  // 旧档逐级升到当前版本（vN → vN+1），补齐新字段默认值
+  const migrated = migrate(parsed);
 
-  const player = parsed.player;
+  const player = migrated.player;
   if (
     !isRecord(player) ||
     typeof player.mapId !== "string" ||
@@ -73,14 +78,22 @@ export function loadGame(
   }
 
   if (
-    !isRecord(parsed.flags) ||
-    !Array.isArray(parsed.clues) ||
-    !parsed.clues.every((c) => typeof c === "string")
+    !isRecord(migrated.flags) ||
+    !Array.isArray(migrated.clues) ||
+    !migrated.clues.every((c) => typeof c === "string")
   ) {
     throw new SaveLoadError("存档数据损坏（flags/clues 字段无效）");
   }
 
-  const state = parsed as unknown as GameState;
+  if (
+    !Array.isArray(migrated.books) ||
+    !migrated.books.every((b) => typeof b === "string") ||
+    !isValidProgress(migrated.progress)
+  ) {
+    throw new SaveLoadError("存档数据损坏（books/progress 字段无效）");
+  }
+
+  const state = migrated as unknown as GameState;
 
   const rejection = worldCheck?.(state) ?? null;
   if (rejection !== null) {
@@ -88,4 +101,31 @@ export function loadGame(
   }
 
   return state;
+}
+
+/**
+ * 存档迁移：把旧版本逐级升到当前版本，补齐新增字段默认值（never 静默丢档）。
+ * 只处理 version < SAVE_VERSION 的情况；调用方已挡掉未来版本。返回升级后的副本。
+ */
+function migrate(save: Record<string, unknown>): Record<string, unknown> {
+  let s = { ...save };
+  // v1 → v2（M3）：新增 books（天书）与 progress（历练/熟练度）
+  if (s.version === 1) {
+    s = { ...s, version: 2, books: [], progress: {} };
+  }
+  return s;
+}
+
+function isValidProgress(v: unknown): boolean {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every(
+    (p) =>
+      isRecord(p) &&
+      typeof p.exp === "number" &&
+      Number.isFinite(p.exp) &&
+      isRecord(p.proficiency) &&
+      Object.values(p.proficiency).every(
+        (n) => typeof n === "number" && Number.isFinite(n),
+      ),
+  );
 }

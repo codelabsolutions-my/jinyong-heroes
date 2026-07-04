@@ -57,9 +57,12 @@ export function resolve(
     }
   }
 
-  // attack/skill/wait 走到这里：先判胜负，未结束则推进回合
+  // attack/skill/wait 走到这里：先判歼灭/全灭，未结束则推进回合并检查目标
   updateOutcome(next);
-  if (next.outcome === "ongoing") endTurn(next);
+  if (next.outcome === "ongoing") {
+    endTurn(next);
+    checkObjective(next); // 回合可能刚推进，检查"存活满 N 回合"类目标
+  }
   return next;
 }
 
@@ -106,6 +109,23 @@ function updateOutcome(state: BattleState): void {
   } else if (livingOf(state, "ally").length === 0) {
     state.outcome = "defeat";
     pushLog(state, "我方全部倒下……");
+  }
+}
+
+/**
+ * 自定义胜负目标（默认歼灭规则之外的补充，在 endTurn 推进回合后调用）。
+ * surviveRounds：我方存活满 N 回合（round 已越过 N）即判胜——"打不过也能过"。
+ */
+function checkObjective(state: BattleState): void {
+  const obj = state.objective;
+  if (!obj || state.outcome !== "ongoing") return;
+  if (
+    obj.surviveRounds !== undefined &&
+    state.round > obj.surviveRounds &&
+    livingOf(state, "ally").length > 0
+  ) {
+    state.outcome = "victory";
+    pushLog(state, `坚持满 ${obj.surviveRounds} 回合，援手赶到，战斗结束！`);
   }
 }
 

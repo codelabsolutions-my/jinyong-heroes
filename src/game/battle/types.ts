@@ -69,6 +69,15 @@ export interface Battlefield {
 
 export type BattleOutcome = "ongoing" | "victory" | "defeat";
 
+/**
+ * 战斗胜负目标（可选）。省略即默认规则：歼灭全部敌人=胜、我方全灭=败。
+ * 用于"打不过也能过"的剧情战（如欧阳锋一战：撑满若干回合，洪七公救场判胜）。
+ */
+export interface BattleObjective {
+  /** 我方存活满这么多回合（该回合结束后）即判胜，无需歼敌 */
+  surviveRounds?: number;
+}
+
 export interface BattleLogEntry {
   text: string;
 }
@@ -87,6 +96,8 @@ export interface BattleState {
   /** 当前行动者本回合是否已移动过（移动 + 一个动作 = 一个回合） */
   turnMoved: boolean;
   outcome: BattleOutcome;
+  /** 胜负目标；省略=默认歼灭/全灭规则 */
+  objective?: BattleObjective;
   /** 最近的战斗日志（UI 取尾部若干条展示） */
   log: BattleLogEntry[];
 }

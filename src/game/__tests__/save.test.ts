@@ -49,6 +49,56 @@ describe("save / load", () => {
     expect(() => loadGame(storage)).toThrow(/版本不兼容/);
   });
 
+  it("migrates a v1 save to v2, filling books/progress defaults", () => {
+    const storage = memoryStorage();
+    // 手写一个 v1 存档（没有 books/progress 字段）
+    const v1 = {
+      version: 1,
+      player: { mapId: "houshan-path", x: 3, y: 4, facing: "left" },
+      flags: { "met-sweeper": true },
+      clues: ["main-fourteen-books"],
+    };
+    storage.data.set(SAVE_KEY, JSON.stringify(v1));
+
+    const loaded = loadGame(storage);
+    expect(loaded).not.toBeNull();
+    expect(loaded?.version).toBe(2);
+    expect(loaded?.books).toEqual([]);
+    expect(loaded?.progress).toEqual({});
+    // 旧字段原样保留，never 静默丢档
+    expect(loaded?.flags).toEqual({ "met-sweeper": true });
+    expect(loaded?.clues).toEqual(["main-fourteen-books"]);
+    expect(loaded?.player.mapId).toBe("houshan-path");
+  });
+
+  it("preserves an existing v2 progress/books round-trip", () => {
+    const storage = memoryStorage();
+    const s = newGame({ mapId: "m", x: 0, y: 0 });
+    s.books.push("book-shediao");
+    s.progress["player"] = { exp: 240, proficiency: { changquan: 12 } };
+    saveGame(storage, s);
+    expect(loadGame(storage)).toEqual(s);
+  });
+
+  it("rejects malformed progress field", () => {
+    const base = newGame({ mapId: "m", x: 0, y: 0 });
+    for (const badProgress of [
+      { player: { exp: "lots", proficiency: {} } },
+      { player: { exp: 10 } },
+      { player: { exp: 10, proficiency: { s: "x" } } },
+      { player: 5 },
+    ]) {
+      const storage = memoryStorage();
+      storage.data.set(
+        SAVE_KEY,
+        JSON.stringify({ ...base, progress: badProgress }),
+      );
+      expect(() => loadGame(storage), JSON.stringify(badProgress)).toThrow(
+        SaveLoadError,
+      );
+    }
+  });
+
   it("throws SaveLoadError on missing fields", () => {
     const storage = memoryStorage();
     storage.data.set(SAVE_KEY, JSON.stringify({ version: 1, flags: {} }));

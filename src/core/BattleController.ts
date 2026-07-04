@@ -3,7 +3,7 @@ import type { Input } from "./Input";
 import { BattleScene, type BattleOverlay } from "@/scenes/BattleScene";
 import { BattleMenu, type MenuItem } from "@/ui/BattleMenu";
 import { makeRng, type Rng } from "@/game/rng";
-import { enemyTurnActions } from "@/game/battle/ai";
+import { autoTurnActions } from "@/game/battle/ai";
 import { coordKey, reachableTiles, targetsInRange } from "@/game/battle/range";
 import { basicAttackTargets, resolve } from "@/game/battle/resolve";
 import {
@@ -21,10 +21,10 @@ type Phase =
   | "actionMenu"
   | "skillMenu"
   | "selectTarget"
-  | "enemyTurn"
+  | "autoTurn"
   | "ending";
 
-const ENEMY_STEP_MS = 420; // 敌方每步之间停顿，便于观看
+const AUTO_STEP_MS = 420; // 自动行动（敌方/战友军）每步停顿，便于观看
 const END_HOLD_MS = 1200; // 胜负横幅停留后再交还控制权
 
 /**
@@ -47,14 +47,18 @@ export class BattleController {
   private targetIdx = 0;
   private pendingSkill: SkillRuntime = BASIC_ATTACK;
   private timer = 0;
+  /** 玩家亲自操控的单位 id（通常是出战队伍）；其余 ally 单位（战友军）走友方 AI。 */
+  private readonly playerIds: Set<string>;
 
   constructor(
     private readonly input: Input,
     initial: BattleState,
     screenWidth: number,
     screenHeight: number,
+    playerIds: string[] = [],
   ) {
     this.state = initial;
+    this.playerIds = new Set(playerIds);
     this.rng = makeRng(initial.seed);
     this.view = new Container();
     this.scene = new BattleScene(initial, screenWidth, screenHeight);
@@ -79,10 +83,10 @@ export class BattleController {
       this.renderFrame();
       return;
     }
-    if (this.phase === "enemyTurn") {
+    if (this.phase === "autoTurn") {
       this.timer -= deltaMS;
       if (this.timer <= 0) {
-        this.runEnemyTurn();
+        this.runAutoTurn();
       }
       this.renderFrame();
       return;
@@ -122,30 +126,32 @@ export class BattleController {
     }
     const active = this.active();
     if (!active) return;
-    if (active.side === "ally") {
-      this.beginAllyTurn(active);
+    // 玩家亲操的 ally 单位 → 交互回合；敌方与战友军(非玩家 ally) → 自动回合
+    if (active.side === "ally" && this.playerIds.has(active.id)) {
+      this.beginPlayerTurn(active);
     } else {
-      this.phase = "enemyTurn";
-      this.timer = ENEMY_STEP_MS;
+      this.phase = "autoTurn";
+      this.timer = AUTO_STEP_MS;
       this.menu.close();
     }
   }
 
-  private beginAllyTurn(active: Combatant): void {
+  private beginPlayerTurn(active: Combatant): void {
     this.phase = "selectMove";
     this.cursor = { x: active.x, y: active.y };
     this.reachable = reachableTiles(this.state, active);
     this.menu.close();
   }
 
-  private runEnemyTurn(): void {
-    const actions = enemyTurnActions(this.state);
+  private runAutoTurn(): void {
+    // side 无关：敌方与战友军都走确定性自动 AI（attack 对方阵营）
+    const actions = autoTurnActions(this.state);
     for (const action of actions) {
       this.state = resolve(this.state, action, this.rng);
       if (this.state.outcome !== "ongoing") break;
     }
     this.dispatchTurn();
-    if (this.phase === "enemyTurn") this.timer = ENEMY_STEP_MS;
+    if (this.phase === "autoTurn") this.timer = AUTO_STEP_MS;
   }
 
   // ── 我方子状态 ──
@@ -320,7 +326,12 @@ export class BattleController {
       return this.state.outcome === "victory" ? "战斗胜利！" : "战败……";
     }
     const active = this.active();
-    const who = active?.side === "ally" ? "我方行动" : "敌方行动";
+    const who =
+      this.phase === "autoTurn"
+        ? active?.side === "ally"
+          ? "战友行动"
+          : "敌方行动"
+        : "我方行动";
     const hint =
       this.phase === "selectMove"
         ? "　方向键选位 · 空格确认"
@@ -339,6 +350,11 @@ export class BattleController {
       phase: this.phase,
       activeId: this.state.activeId,
       activeSide: active?.side ?? null,
+      // 是否轮到玩家亲操（e2e 据此决定何时发按键）
+      playerTurn:
+        active != null &&
+        active.side === "ally" &&
+        this.playerIds.has(active.id),
       canAttack: basicAttackTargets(this.state).length > 0,
       combatants: this.state.combatants.map((c) => ({
         id: c.id,

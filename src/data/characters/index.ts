@@ -43,4 +43,60 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     move: 3,
     skills: [],
   },
+
+  // —— 射雕线（M3）——
+  // 数值为 M3 手调临时值：CHARACTERS §2.2 的"主角同级基准×系数"完整折算随 M4 等级系统落地。
+  // 郭靖：重装战士（§4 hp1.3 def1.2 spd0.8），自带降龙十八掌，射雕线剧情战友军。
+  guojing: {
+    id: "guojing",
+    name: "郭靖",
+    color: 0xc2a86b,
+    hp: 90,
+    mp: 30,
+    attack: 16,
+    defense: 12,
+    speed: 8,
+    move: 4,
+    skills: ["xianglong"],
+  },
+  // 黄蓉：军师型（§4 atk0.7 spd1.2）。"计策"（乱阵/激励）是控制技，本引擎（伤害制）
+  // 暂不支持增益/减益 → M4 实装；M3 先以普攻并肩，机动偏高。
+  huangrong: {
+    id: "huangrong",
+    name: "黄蓉",
+    color: 0xd98b9a,
+    hp: 55,
+    mp: 40,
+    attack: 9,
+    defense: 7,
+    speed: 13,
+    move: 4,
+    skills: [],
+  },
+  // 黄河鬼：射雕第 1 章 BOSS「黄河四鬼」的单体模板（encounter 里放 4 个）。T1-T2 杂兵。
+  "huanghe-gui": {
+    id: "huanghe-gui",
+    name: "黄河鬼",
+    color: 0x6b7f4a,
+    hp: 24,
+    mp: 0,
+    attack: 12,
+    defense: 5,
+    speed: 9,
+    move: 3,
+    skills: [],
+  },
+  // 欧阳锋（西毒）：射雕第 3 章 BOSS，T3 超模。设计为"打不过也能过"，撑回合即胜。
+  ouyangfeng: {
+    id: "ouyangfeng",
+    name: "欧阳锋",
+    color: 0x8e7cc3,
+    hp: 130,
+    mp: 99,
+    attack: 30,
+    defense: 16,
+    speed: 16,
+    move: 4,
+    skills: ["hamagong"],
+  },
 };

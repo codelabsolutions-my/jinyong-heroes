@@ -1,34 +1,38 @@
 # NEXT_STEPS.md — 交接与实施计划
 
 > 写给下一个接手的 Claude session（任何模型）。目标：不需要读完整个对话历史，
-> 只读这份文档 + 下面列的必读文件，就能直接开工 M2。
+> 只读这份文档 + 下面列的必读文件，就能直接开工 M4。
 > 完成一个里程碑后：更新本文档（把下一个里程碑展开成同等细度）、更新
 > PROJECT_OVERVIEW 的 Scope/Roadmap，然后才开下一个。
 
 ---
 
-## 0. 当前状态（2026-07-04）
+## 0. 当前状态（2026-07-05）
 
-- **main：M0+M1+M2 已完成并 squash-merge**。工作树应干净、无遗留分支/worktree。
-- **111 个单测全过**；`npm test && npm run lint && npx tsc --noEmit` 全绿。
-- **可玩内容**：两张地图（无名小村 ↔ 后山小径）、NPC 对话（含条件变体）、线索日志（J）、
-  存档（K）/读档（L）v1；**后山拦路强盗触发完整网格战棋战斗**（移动/攻击/武学/待机、
-  三系克制、胜负回探索、胜利置 flag 不再重复触发）。
-- **战斗系统全在 `src/game/battle/`（纯逻辑，零 Pixi，重度单测）**：rng / types / damage /
-  range(BFS) / turnOrder / ai / setup / resolve。渲染在 `scenes/BattleScene`、`ui/BattleMenu`，
-  交互在 `core/BattleController`。
-- M1、M2 都经过 code review 并修完；教训固化成测试（存档校验、变体遮蔽、内容坏链、回放一致）。
+- **main：M0+M1+M2+M3 已完成并 squash-merge**。工作树应干净、无遗留分支/worktree。
+- **196 个单测全过**；`npm test && npm run lint && npx tsc --noEmit && npm run build` 全绿。
+- **M3 可玩内容**：无名小村「说书先生」(14,14) 对话点火射雕线 → 事件链自动开演：
+  牛家村黄河四鬼战（郭靖并肩）→ 华山欧阳锋战（撑回合胜=洪七公救场，"打不过也能过"，郭靖+黄蓉并肩）
+  → 授天书《射雕》(`book-shediao`) + 历练奖励 → 「江湖手札」J 面板天书分册（14 部进度）。存读档保留天书。
+- **M3 新增系统层**（纯逻辑，重度单测）：`src/game/story/`（声明式剧情事件链 runner）、
+  `src/game/progression.ts`（历练/熟练/天书奖励）、`src/game/battle/` 扩展（objective/allies/友方 AI）、
+  `save.ts` v1→v2 迁移。集成在 `core/Game.ts`（story 播放引擎）+ `core/BattleController.ts`（playerIds/友方自动）。
+  内容在 `src/data/story/`、`src/data/books/`、新地图/人物/遭遇/对话。
+- M1/M2/M3 都经过 code review 并修完；教训固化成测试（存档校验/迁移、变体遮蔽、内容坏链、回放一致、
+  剧情事件引用完整性、choice 死路 fail-fast、剧情战失败不无限重演）。
+- **⚠️ M3 刻意简化（M4 补，见 ADR #21）**：射雕线为对话+战斗叠加演出，牛家村/华山地图已建但暂不可步行抵达
+  （播放期玩家仍在无名小村）；友方 AI 只用普攻，黄蓉「计策」增益技待 M4；招募入常驻队伍是 M4。
 
 ### 必读文件（按顺序）
 
 1. `CLAUDE.md` — 工作流程和架构铁律（worktree 分支、分层、测试、验证）
-2. `docs/GAME_DESIGN.md` — 游戏系统设计（战斗规格 §4 已对齐 M2 实现）
-3. `docs/PROJECT_OVERVIEW.md` — 当前里程碑 scope（现在是 M3）
-4. `docs/DECISIONS.md` — 15 条 ADR，别推翻已定决策（战斗相关见 #12-#15）
-5. `src/game/`（尤其 `battle/`）— 读 setup.ts + resolve.ts + types.ts 就懂战斗分层
-6. `scripts/verify-m2.mjs` — 状态感知 e2e 范式（读 `__debug().battle` 驱动战斗）；M3 照抄结构
-7. `docs/STORY_BIBLE.md` — 十四天书全流程；**M3 做《射雕》§2.9**
-8. `docs/CHARACTERS_AND_SKILLS.md` — 属性/成长/队友/武学表（M3 历练升级、郭靖黄蓉数值从这取）
+2. `docs/GAME_DESIGN.md` — 游戏系统设计（战斗 §4、剧情链/奖励/天书 §4A 已对齐 M3 实现）
+3. `docs/PROJECT_OVERVIEW.md` — 当前里程碑 scope（现在是 M4）
+4. `docs/DECISIONS.md` — 21 条 ADR，别推翻已定决策（M3 相关见 #17-#21）
+5. `src/game/story/`（runner.ts + types.ts）+ `src/game/progression.ts` — 剧情/奖励分层
+6. `src/data/story/shediao.ts` — 一条完整剧情线的数据范式；M4 加线照抄
+7. `scripts/verify-m3.mjs` — 状态感知 e2e 范式（点火→事件链→战斗→断言天书）；M4 照抄结构
+8. `docs/STORY_BIBLE.md` §2.9 已标实装；`docs/CHARACTERS_AND_SKILLS.md` — 队友系数/武学表/正邪值挂钩（M4 用）
 
 ### 怎么跑
 
@@ -66,92 +70,89 @@ node scripts/verify-m2.mjs http://localhost:5200 /tmp/shots
 
 ---
 
-## 2. M3「第一部天书」— 详细实施计划
+## 2. M4「江湖成形」— 详细实施计划
 
-**目标**：一条完整的小说线（《射雕》第 1、3 章，STORY_BIBLE §2.9），跑通
-"剧情事件链 → 战斗 → 奖励 → 天书"闭环。这是第一次把 M1（对话/地图/存档）+ M2（战斗）
-串成一条有始有终的线，并首次改存档格式。
+**目标**：把"一条线"扩成"一个江湖"——正邪值 + 门派声望进档并影响世界、招募队友进常驻队伍、
+2-3 条小说线并行可触发、地图行走接通剧情场景。也补齐 M3 的已知简化项。
 
-> 前置阅读：STORY_BIBLE §2.9（射雕章节流程）、CHARACTERS_AND_SKILLS §2.1（历练升级曲线）
-> 与 §4（郭靖/黄蓉系数）、GAME_DESIGN §4（战斗已实现）。
+> 前置阅读：CHARACTERS_AND_SKILLS §4（队友名册/系数）、§4.1（羁绊挂点）、§5（正邪值/声望数值挂钩）、
+> STORY_BIBLE §1.2（难度层）与各线入口条件、GAME_DESIGN §4A（M3 已实现的剧情/奖励/战斗积木）。
 
-### 2.1 事件链系统（M3 的真正新东西）
+### 2.1 GameState 扩展 + 存档 v2→v3（必做）
 
-M1 的对话只能线性播 + 末尾发 effect。M3 需要**多步、可分支、跨章的剧情事件**。
-建议在 `src/game/story/` 建**声明式事件系统**（复用现有 Condition/Effect 词汇）：
+- `GameState` 加：`morality`（正邪值，整数）、`reputation: Record<sectId, number>`（门派声望）、
+  `party: string[]`（常驻队伍 charId，出战上限 5）。
+- **bump `SAVE_VERSION` 2→3**，`save.ts` 写 v2→v3 迁移（老档补 `morality:0/reputation:{}/party:[]`）；
+  **迁移单测**（喂 v2 档断言升级）。注意 `migrate()` 已是逐级结构，接着 v1→v2 后面加 v2→v3。
+- `Condition` 扩展：`minMorality/maxMorality`、`hasCompanion`、`minReputation`（配 ConditionEvaluator）。
+  这样对话变体/剧情 trigger 能按正邪/队友/声望分支——**纯逻辑，先加 evaluate 单测**。
 
-```
-src/game/story/types.ts     # StoryEvent { id, trigger: Condition, steps: Step[] }
-                            # Step = dialogue | choice | battle | reward | setFlag | grantBook
-src/game/story/runner.ts    # 纯逻辑：推进 event 的 step 指针，产出"下一步要 UI 做什么"
-src/game/story/__tests__/   # 分支/条件/回放单测
-src/data/story/shediao.ts   # 射雕线事件数据（章节流程翻译成 steps）
-```
+### 2.2 队伍/招募系统
 
-关键：runner 是**纯函数**（step 推进不碰 Pixi）；`choice` 分支按 Condition 选下一步；
-`battle` step 复用 M2 的 setupBattle/BattleController，战斗结果（胜/败）回喂 runner 决定走向。
-Game 需要把当前 `mode` 扩展或复用 dialogue/battle 来承载事件播放。**别把事件硬编码进 Game**
-（ADR #3：加剧情不改引擎）。
+- 招募 = 一个 `recruit` 剧情 Step（或对话 effect）：把 charId 加入 `state.party`。
+- 战斗出战：`enterBattle` 的 `party` 从 `[player]` 改为读 `state.party`（player 恒在），
+  按 `allySpawns` 摆位（spawns 要够；不够则报错或截断——定清楚）。playerIds 传全部出战队伍。
+- 队友跟随成长（CHARACTERS §2.2）：队友等级=主角等级，属性=主角同级基准×系数。
+  在 `progression.ts` 加"按系数折算队友有效属性"的纯函数 + 单测。
+- 郭靖/黄蓉从"剧情战友军"升级为"可招募"（射雕线走完解锁），黄蓉「计策」增益技需 §2.4 支持。
 
-### 2.2 存档格式升级（必做，M2 欠的账）
+### 2.3 地图行走接通剧情（补 M3 简化，ADR #21）
 
-- `GameState` 加 `books: string[]`（已得天书 id）+ 战后延续所需的历练/武学熟练度字段。
-- **bump `SAVE_VERSION` 1→2**，在 `src/game/save.ts` 已标注的迁移点写 v1→v2：
-  老档（无 books/历练字段）补默认值。**迁移必须有单测**（喂一个 v1 档，断言升级后字段齐全）。
-- 天书进度、历练值随存档持久化。
+- story 加 `switchMap` Step（`{kind,mapId,x,y}`）：runner 产出一个 `switchMap` effect，
+  Game 收到后改 `state.player.mapId/x/y` 并 `rebuildScene()`。**runner 保持纯**——只产数据。
+- 用它让射雕线真正走进牛家村/华山（两图 M3 已建）；牛家村/华山补入口（双向 exit 或 story 带入）。
+- ⚠️ 加/改地图必跑 verify-m1/m2/m3 回归（导航耦合，§0 警告）。
 
-### 2.3 战斗奖励接通
+### 2.4 战斗增益/减益技能（黄蓉「计策」类）
 
-- 战斗胜利 → 发历练值（升级按 CHARACTERS §2.1 曲线：`所需=100×lv^1.5`）+ 可能的武学习得。
-- 新 Effect/Step：`grantBook`（发天书，放在**无变体遮蔽的主链**上，参照 content.test 的
-  "变体遮蔽"守则）、`gainExp`、`learnSkill`。
-- 郭靖/黄蓉：作**剧情战友军**自动加入该线的战斗（在 encounter 里作为 ally 阵容），
-  数值按 CHARACTERS §4 系数。招募入常驻队伍是 M4，M3 只是"这一战他们并肩"。
+- M3 的 `SkillRuntime` 只有伤害语义。M4 加 `effect` 字段（如 `{kind:"debuffSpeed",amount,duration}`
+  / `{kind:"buffAtk",...}`）+ 战斗内 buff/debuff 状态（进 `Combatant`，随回合衰减）。
+- resolve 处理 buff/debuff 结算（纯逻辑 + 回放单测）；friendly/enemy AI 可选放增益技。
+- 消耗品/商店（CHARACTERS §3.3）：金创药等，作战斗 `item` 动作 + 探索层商店 UI（可拆到后续）。
 
-### 2.4 内容 + 地图
+### 2.5 多线并行
 
-- 新地图（牛家村/华山之巅，STORY_BIBLE §2.9），字符网格照 data/maps 格式。
-- 日志（JournalPanel）加"天书"分册：14 格进度，已得高亮，未得显示入口线索。
-- 欧阳锋一战设计为"打不过也能过"（坚持 N 回合触发洪七公救场）——需要战斗支持
-  **回合数/自定义胜利条件**，M2 的 resolve 只有全灭判定，这里要扩展 outcome 触发器。
+- 再落地 2 条线的第 1 章（STORY_BIBLE 选入口门槛低的，如碧血剑/鸳鸯刀教学关），
+  各自入口 NPC 点火（照 `storyteller-shediao` 范式，注意放置避开 e2e 路径）。
+- 天书面板已支持 14 部；新线走完 `grantBook` 对应 id 即自动点亮。
 
-### 2.5 测试要求
+### 2.6 测试要求
 
-- 逻辑单测：story runner（分支、条件、step 推进、战斗结果回喂）、存档 v1→v2 迁移、
-  历练升级曲线、grantBook 幂等（不重复发）。
-- 内容测试扩展：story 事件的引用完整性（battle→encounter、grantBook→书 id、
-  跳转目标 event 存在），沿用 content.test 的坏链拦截风格。
-- e2e `scripts/verify-m3.mjs`：从射雕线入口触发 → 走完事件链（含至少一场战斗）→
-  断言拿到天书、books 含《射雕》、存读档保留天书。**跑 verify-m1/m2 回归**（§0 的耦合警告）。
+- 逻辑单测：v2→v3 迁移、Condition 新字段 evaluate、队友系数折算、buff/debuff 结算与衰减、
+  `switchMap` runner 产出、招募改 party。
+- 内容测试：content.test 已泛化到 STORY_EVENTS/BOOKS/allies——新线自动受保护；
+  加 `recruit`/`switchMap` step 的引用校验（charId∈CHARACTERS、mapId∈MAPS）。
+- e2e：新增 `verify-m4.mjs`（招募一名队友→带进下一战→正邪值影响一处对话变体→switchMap 走图）；
+  **跑 verify-m1/m2/m3 回归**。
 
-### 2.6 M3 完成定义
+### 2.7 M4 完成定义
 
-1. verify-m3 全绿 + verify-m1/m2 回归仍绿；单测/lint/tsc 过；code review 跑过且修完
-2. 存档 v1→v2 迁移有测试且旧档能升级
-3. GAME_DESIGN / STORY_BIBLE 与实现对齐（同 PR 修）；DECISIONS 加 ADR
-4. PROJECT_OVERVIEW Scope 换成 M4 并展开；本文档 §2 换成 M4 的同等细度计划
+1. verify-m4 全绿 + m1/m2/m3 回归仍绿；单测/lint/tsc/build 过；code review 跑过且修完
+2. 存档 v2→v3 迁移有测试且旧档能升级（never 静默丢档）
+3. GAME_DESIGN/STORY_BIBLE/DECISIONS(加 ADR)/PROJECT_OVERVIEW 与实现对齐（同 PR）
+4. 本文档 §2 换成 M5 的同等细度计划
 
-### 2.7 M2 落地后的现成积木（直接复用，别重造）
+### 2.8 M3 落地后的现成积木（直接复用，别重造）
 
-- `setupBattle({encounter, party, characterTable, skillTable, seed})` → BattleState
-- `new BattleController(input, state, w, h)`；`.update(dt)`；`.result`（"victory"/"defeat"/null）；
-  `.debugSnapshot()`（e2e 探针）
-- `resolve(state, action, rng)` 纯函数；`enemyTurnActions`、`reachableTiles`、`targetsInRange`
-- 对话 Effect `startBattle` 已通；Game 里 `enterBattle/endBattle` 是战斗进出的范例
-- **M2 已知简化项**（GAME_DESIGN §4 末列）：无常驻系别、移动不可撤销、战不进档——
-  M3/M4 视需要补齐；补哪个都要连带更新测试与文档。
+- **剧情**：`StoryEvent`/`Step`（`src/game/story/types.ts`）、`runEvent/startEvent/selectTriggeredEvent/
+eventDoneFlag/collectStepRefs`（runner.ts）；`src/data/story/shediao.ts` 是完整范式；
+  Game 的 `beginStory/advanceStory/endStory` 是播放引擎，加 `switchMap`/`recruit` yield 就地扩。
+- **奖励**：`progression.ts` 的 `gainExp/learnSkill/grantBook/applyStoryEffects/charLevel/skillLevel`。
+- **战斗**：`setupBattle`（已支持 `allies`/`objective`）、`BattleController(input,state,w,h,playerIds)`、
+  `autoTurnActions`（side 无关友方/敌方 AI）、`BattleObjective.surviveRounds`。
+- **存档**：`save.ts` 的 `migrate()` 逐级结构，v2→v3 接在后面即可。
+- **M3 已知简化项**（GAME_DESIGN §4A 末 / ADR #21）：地图不可步行抵达剧情场景、友方 AI 只普攻、
+  黄蓉计策未实装、无常驻队伍——**都在 M4 补**，补哪个都连带更新测试与文档。
 
 ---
 
-## 3. M4-M6 概要（到时再展开；M3 详见 §2）
+## 3. M5-M6 概要（到时再展开；M4 详见 §2）
 
-- **M4 江湖成形**：正邪值 + 门派声望字段进 GameState（bump 版本）、影响对话变体和
-  招募；队伍系统（招募 1-2 名队友进战斗）；3 条小说线并行可触发。
 - **M5 纵向切片**：开局→任一结局可玩通；像素素材替换色块（素材许可记录进
   docs/CREDITS.md，见 CLAUDE.md §2.2）；标题画面/新游戏/继续游戏入口。
 - **M6 活江湖**：门派动态模拟（确定性 tick + 传闻叙事）、自创武功（点数预算）——
   设计见 `docs/AI_FEATURES.md`（⚠️ 无运行时 LLM、无后端，ADR #11）；创作期 LLM
-  内容工作流从 M3 起就可用。
+  内容工作流已可用。
 
 ---
 

@@ -5,13 +5,25 @@ import type { Direction } from "./geometry";
  * 渲染层只读它；改动通过 game/ 层的函数进行。
  */
 
-export const SAVE_VERSION = 1;
+// v1: player/flags/clues。v2(M3): 加 books（天书）+ progress（历练/武学熟练度）。
+export const SAVE_VERSION = 2;
 
 export interface PlayerState {
   mapId: string;
   x: number;
   y: number;
   facing: Direction;
+}
+
+/**
+ * 角色养成进度（M3+）。战后延续的数值挂这里，不散落进 data 层的静态人物表。
+ * 等级由 exp 经曲线反推（`100×lv^1.5`，见 CHARACTERS §2.1）——只存 exp，等级不落盘避免不同步。
+ */
+export interface CharProgress {
+  /** 累计历练值 */
+  exp: number;
+  /** 武学熟练度，按 skill id */
+  proficiency: Record<string, number>;
 }
 
 export interface GameState {
@@ -21,6 +33,10 @@ export interface GameState {
   flags: Record<string, true>;
   /** 已获得的线索 id，按获得顺序 */
   clues: string[];
+  /** 已获得的天书 id，按获得顺序（M3+） */
+  books: string[];
+  /** 角色养成进度，按角色 id（M3+） */
+  progress: Record<string, CharProgress>;
 }
 
 export function newGame(spawn: {
@@ -33,6 +49,8 @@ export function newGame(spawn: {
     player: { mapId: spawn.mapId, x: spawn.x, y: spawn.y, facing: "down" },
     flags: {},
     clues: [],
+    books: [],
+    progress: {},
   };
 }
 

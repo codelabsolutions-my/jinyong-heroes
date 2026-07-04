@@ -30,6 +30,8 @@ async function boot() {
     player: { ...game.state.player },
     clues: [...game.state.clues],
     flags: { ...game.state.flags },
+    books: [...game.state.books],
+    storyActive: game.isStoryActive,
     battle: game.battleSnapshot(),
   });
 }

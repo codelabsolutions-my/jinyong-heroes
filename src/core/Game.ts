@@ -24,6 +24,21 @@ import {
 } from "@/game/dialogue";
 import { SaveLoadError, type KVStorage, loadGame, saveGame } from "@/game/save";
 import { type GameState, newGame, setFlag } from "@/game/state";
+import { STORY_EVENTS } from "@/data/story";
+import { BOOKS } from "@/data/books";
+import { applyStoryEffects } from "@/game/progression";
+import {
+  eventDoneFlag,
+  runEvent,
+  selectTriggeredEvent,
+  startEvent,
+} from "@/game/story/runner";
+import type {
+  StoryEffect,
+  StoryEvent,
+  StoryInput,
+  StoryRunState,
+} from "@/game/story/types";
 
 export type GameMode = "explore" | "dialogue" | "journal" | "battle";
 
@@ -52,6 +67,11 @@ export class Game {
   private activeDialogue: ActiveDialogue | null = null;
   private battle: BattleController | null = null;
   private battleId: string | null = null;
+  // 剧情事件播放（M3）：非 null 表示正在演一条剧情线
+  private storyEvent: StoryEvent | null = null;
+  private storyRun: StoryRunState | null = null;
+  // 当前战斗是否由剧情驱动（结果要回喂 story，而非走 M1/M2 的 battleWonFlag 路径）
+  private storyBattle = false;
 
   constructor(
     private readonly input: Input,
@@ -159,6 +179,12 @@ export class Game {
     } else if (this.input.takePress("KeyL")) {
       this.loadFromStorage();
     }
+
+    // 剧情点火：某入口 flag 满足即自动开演对应剧情线（不重复触发靠 eventDoneFlag）
+    if (this.mode === "explore" && this.storyRun === null) {
+      const event = selectTriggeredEvent(STORY_EVENTS, this.state);
+      if (event) this.beginStory(event);
+    }
   }
 
   private updateDialogue() {
@@ -175,7 +201,10 @@ export class Game {
             .join("、");
           this.toast.show(`获得线索：「${titles}」`);
         }
-        if (result.startBattle) {
+        if (this.storyRun) {
+          // 剧情对话演完 → 继续推进剧情事件（下一步可能是对话/战斗/落幕）
+          this.advanceStory(undefined);
+        } else if (result.startBattle) {
           this.enterBattle(result.startBattle);
         } else {
           this.mode = "explore";
@@ -217,6 +246,7 @@ export class Game {
         state,
         this.screenWidth,
         this.screenHeight,
+        [player.id], // 出战队伍由玩家操控；encounter.allies（战友军）走友方 AI
       );
     } catch (err) {
       // 遭遇数据有坏链（应被 content.test 拦下）；运行时兜底回探索，不冻死循环
@@ -242,18 +272,109 @@ export class Game {
     }
     this.worldSlot.visible = true;
     this.hintBar.view.visible = true;
+
+    const wasStoryBattle = this.storyBattle;
+    this.storyBattle = false;
+    const finishedBattleId = this.battleId;
+    this.battleId = null;
+
+    if (wasStoryBattle && this.storyEvent && this.storyRun) {
+      // 剧情战：把胜负回喂剧情事件，由 story 决定下一步（不置 battleWonFlag）
+      this.advanceStory({ type: "battle", outcome });
+      return;
+    }
+
+    // 非剧情战（M1/M2 路径）
     this.hintBar.set(EXPLORE_HINT);
     this.mode = "explore";
-
     if (outcome === "victory") {
-      if (this.battleId) setFlag(this.state, battleWonFlag(this.battleId));
+      if (finishedBattleId)
+        setFlag(this.state, battleWonFlag(finishedBattleId));
       this.toast.show("旗开得胜！");
     } else {
       // 战败：**不动存档、不重置进度**——退回探索原地，玩家可再挑战（胜利 flag 未置）。
-      // 战败读档/死亡惩罚等留到 M3（有持久队伍状态时再设计），避免这里静默丢档。
       this.toast.show("战败……重整旗鼓，再来！");
     }
-    this.battleId = null;
+  }
+
+  // ── 剧情事件播放（M3）──
+
+  private beginStory(event: StoryEvent) {
+    this.storyEvent = event;
+    this.storyRun = startEvent(event);
+    this.advanceStory(undefined);
+  }
+
+  /** 推进剧情：应用奖励，按 yield 转到对话/战斗/落幕。 */
+  private advanceStory(input: StoryInput) {
+    if (!this.storyEvent || !this.storyRun) return;
+    const res = runEvent(this.storyEvent, this.state, this.storyRun, input);
+    this.storyRun = res.run;
+    this.applyStoryResultEffects(res.effects);
+
+    switch (res.yield.kind) {
+      case "dialogue":
+        this.showStoryDialogue(res.yield.dialogueId);
+        break;
+      case "battle":
+        this.storyBattle = true;
+        this.enterBattle(res.yield.battleId);
+        if (this.mode !== "battle") {
+          // 遭遇启动失败（坏链，应被 content.test 拦下）：安全落幕，不卡死。
+          // 必须先置事件完成 flag，否则回到探索后 selectTriggeredEvent 会每帧重触发、
+          // 重复发奖，且坏状态被 endStory 存档固化（review 发现的无限重演 bug）。
+          this.storyBattle = false;
+          if (this.storyEvent) {
+            setFlag(this.state, eventDoneFlag(this.storyEvent.id));
+          }
+          this.endStory();
+        }
+        break;
+      case "choice":
+        // M3 射雕线无 choice；出现则自动选第一个可选项，避免卡住（选择 UI 留待后续）
+        this.advanceStory({
+          type: "choice",
+          option: res.yield.options[0]?.option ?? 0,
+        });
+        break;
+      case "end":
+        this.endStory();
+        break;
+    }
+  }
+
+  private showStoryDialogue(dialogueId: string) {
+    const dialogue = DIALOGUES[dialogueId];
+    if (!dialogue) {
+      // 坏链（应被测试拦下）：跳过这句，继续推进
+      this.advanceStory(undefined);
+      return;
+    }
+    this.activeDialogue = startDialogue(this.state, dialogue);
+    const line = currentLine(this.activeDialogue);
+    this.dialogueBox.show(line.speaker, line.text);
+    this.mode = "dialogue";
+    this.hintBar.set("空格 继续");
+  }
+
+  private applyStoryResultEffects(effects: StoryEffect[]) {
+    if (effects.length === 0) return;
+    const report = applyStoryEffects(this.state, effects, { player: "player" });
+    for (const bookId of report.books) {
+      this.toast.show(`获得天书《${BOOKS[bookId]?.name ?? bookId}》！`);
+    }
+    if (report.books.length === 0 && report.exp.some((e) => e.leveledUp)) {
+      this.toast.show("修为精进，等级提升！");
+    }
+  }
+
+  private endStory() {
+    this.storyEvent = null;
+    this.storyRun = null;
+    this.storyBattle = false;
+    this.mode = "explore";
+    this.hintBar.set(EXPLORE_HINT);
+    saveGame(this.storage, this.state); // 天书/历练进度落盘
   }
 
   private updateJournal() {
@@ -324,5 +445,10 @@ export class Game {
   /** e2e / 调试探针：当前战斗快照（非战斗时为 null） */
   battleSnapshot() {
     return this.battle?.debugSnapshot() ?? null;
+  }
+
+  /** e2e / 调试探针：是否正在演一条剧情线 */
+  get isStoryActive(): boolean {
+    return this.storyRun !== null;
   }
 }

@@ -28,4 +28,11 @@ export const NPCS: Record<string, NpcDef> = {
     color: 0x9c5a3a,
     dialogueId: "bandit",
   },
+  // 射雕线点火 NPC（放在无名小村，避开 M1/M2 e2e 行走路径）
+  storyteller: {
+    id: "storyteller",
+    name: "说书先生",
+    color: 0xb08d57,
+    dialogueId: "storyteller-shediao",
+  },
 };
