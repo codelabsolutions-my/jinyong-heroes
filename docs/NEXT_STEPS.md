@@ -24,6 +24,8 @@
 4. `docs/DECISIONS.md` — 10 条 ADR，别推翻已定决策
 5. `src/game/` 全部文件 — 很小，读完就懂分层怎么做的
 6. `scripts/verify-m1.mjs` — e2e 验证的写法范式，M2 照抄结构
+7. `docs/STORY_BIBLE.md` — 十四天书全流程章节级设计 + 结局矩阵 + 里程碑映射（写剧情必读）
+8. `docs/CHARACTERS_AND_SKILLS.md` — 属性模型、数值曲线、17 队友名册、武学总表（M2 数值直接从这取）
 
 ### 怎么跑
 
