@@ -1,0 +1,65 @@
+# Fresh-clone smoke test. Catches the regressions that repeatedly bit past projects:
+#   - missing dependency in the lockfile/requirements
+#   - broken or drifted .env.example
+#   - migration crash on first run against an EMPTY database (extensions, indexes)
+#   - import-time errors in any module
+# Reproduces a from-zero setup: empty venv, empty DB, no manual fix-ups.
+name: Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_smoke
+          POSTGRES_USER: app
+          # Special chars on purpose — exercises URL-encoding of DB config.
+          POSTGRES_PASSWORD: "p@ss:w/rd#!"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: "p@ss:w/rd#!"
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: app_smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install from scratch
+        run: uv sync
+
+      - name: Boot config from .env.example
+        run: |
+          cp .env.example .env
+          # Fill only the values CI controls; everything else must have a sane default.
+
+      - name: Migrations against an empty DB
+        run: uv run alembic upgrade head # {{or: pnpm prisma migrate deploy}}
+
+      - name: Import-time errors
+        run: uv run python -c "import app" # {{adjust module name}}
+
+      - name: App boots and answers
+        run: |
+          uv run uvicorn app.main:app --port 8000 &
+          sleep 5
+          curl -sf http://localhost:8000/health

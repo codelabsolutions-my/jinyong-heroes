@@ -1,0 +1,46 @@
+# ── Secrets & local config — never committed, no exceptions ──
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Database dumps & backups — store OUTSIDE the repo ──
+*.dump
+*.sql.gz
+*_backup_*
+*_backup.*
+prod_*.sql
+dump.*
+
+# ── Dependencies ──
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ── Build output ──
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# ── Tooling caches ──
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+coverage/
+.coverage
+
+# ── OS / editor ──
+.DS_Store
+.vscode/
+.idea/
+
+# ── Claude Code local state ──
+.claude/settings.local.json
+.claude/team-state.json
+logs/

@@ -1,0 +1,91 @@
+# Lint + test on every push/PR. Delete the jobs that don't apply to this project's stack.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs-guard:
+    # Backstop for .claude/hooks/docs-guard.sh: architecture-significant changes
+    # must land with a doc update in the same PR. Bypass: "[no-adr]" in PR title.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.title, '[no-adr]')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require doc updates alongside architecture changes
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          sig=$(echo "$changed" | grep -E '^(db/migrations/|migrations/|prisma/migrations/|alembic/|contracts/|shared/models/|\.github/workflows/|infra/|docker-compose|Dockerfile|Makefile|\.env\.example)' || true)
+          docs=$(echo "$changed" | grep -E '^(CLAUDE\.md|AGENTS\.md|README\.md|docs/)' || true)
+          if [ -n "$sig" ] && [ -z "$docs" ]; then
+            echo "::error::Architecture-significant files changed without any doc update:"
+            echo "$sig"
+            echo "Update docs/DECISIONS.md (ADR row), CLAUDE.md, or README.md in this PR — or add [no-adr] to the PR title with justification."
+            exit 1
+          fi
+          echo "docs-guard: OK"
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  backend:
+    runs-on: ubuntu-latest
+    # {{Remove if no Python backend}}
+    services:
+      postgres:
+        image: postgres:16 # or postgis/postgis:16-3.4, or apache/age
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync # {{or: pip install -r requirements.txt}}
+      - run: uv run ruff check .
+      - run: uv run pytest -v
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: password
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: app_test
+
+  frontend:
+    runs-on: ubuntu-latest
+    # {{Remove if no JS/TS frontend}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test # Vitest
+      - run: pnpm build

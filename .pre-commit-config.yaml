@@ -1,0 +1,30 @@
+# Install once per clone: pre-commit install
+# Update pinned versions: pre-commit autoupdate
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+      - id: detect-private-key
+      # Blocks the "29MB prod dump committed to the repo" class of mistake.
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  # Secrets never reach a commit. Non-negotiable — do not remove this hook.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        files: \.(ts|tsx|js|jsx|css|json|md)$
