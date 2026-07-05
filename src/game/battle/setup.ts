@@ -33,6 +33,7 @@ function expandSkills(
       power: def.power,
       range: def.range,
       mpCost: def.mpCost,
+      ...(def.status ? { status: { ...def.status } } : {}),
     };
   });
 }
@@ -61,6 +62,7 @@ function makeCombatant(
     speed: def.speed,
     move: def.move,
     skills: expandSkills(def.skills, skillTable),
+    statuses: [],
   };
 }
 

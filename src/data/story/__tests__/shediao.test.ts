@@ -99,6 +99,9 @@ describe("射雕线 story — 触发与走通", () => {
     expect(exp).toHaveLength(3);
     expect(state.flags["sd-done"]).toBe(true);
     expect(state.flags["sd-ch1-done"]).toBe(true);
+    // 走完招募郭靖/黄蓉（recruit effect 在主链，由 Game 的 applyStoryEffects 应用）
+    expect(effects).toContainEqual({ type: "recruit", charId: "guojing" });
+    expect(effects).toContainEqual({ type: "recruit", charId: "huangrong" });
   });
 
   it("第 1 章战败会回到该战重来，最终仍可走通", () => {

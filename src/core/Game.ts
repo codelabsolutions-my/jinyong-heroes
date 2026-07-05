@@ -9,7 +9,7 @@ import { Toast } from "@/ui/Toast";
 import { CLUES } from "@/data/clues";
 import { DIALOGUES } from "@/data/dialogues";
 import { NPCS } from "@/data/npcs";
-import { CHARACTERS } from "@/data/characters";
+import { CHARACTERS, type CharacterDef } from "@/data/characters";
 import { SKILLS } from "@/data/skills";
 import { ENCOUNTERS } from "@/data/battles";
 import { MAPS, START_MAP_ID, getMap } from "@/data/maps";
@@ -233,10 +233,19 @@ export class Game {
       return;
     }
     const player = CHARACTERS["player"]!;
+    // 出战阵容 = 主角 + 已招募队友（state.party），按 allySpawns 数量截断（超额上不了场）。
+    // encounter.allies（剧情战友军）另算，走友方 AI。
+    const companions = this.state.party
+      .map((id) => CHARACTERS[id])
+      .filter((c): c is CharacterDef => c != null);
+    const roster = [player, ...companions].slice(
+      0,
+      encounter.allySpawns.length,
+    );
     try {
       const state = setupBattle({
         encounter,
-        party: [player],
+        party: roster,
         characterTable: CHARACTERS,
         skillTable: SKILLS,
         seed: Math.floor(Math.random() * 0x7fffffff),
@@ -246,7 +255,8 @@ export class Game {
         state,
         this.screenWidth,
         this.screenHeight,
-        [player.id], // 出战队伍由玩家操控；encounter.allies（战友军）走友方 AI
+        // 出战队伍全部由玩家操控；encounter.allies（剧情战友军）走友方 AI
+        roster.map((c) => c.id),
       );
     } catch (err) {
       // 遭遇数据有坏链（应被 content.test 拦下）；运行时兜底回探索，不冻死循环
@@ -363,7 +373,24 @@ export class Game {
     for (const bookId of report.books) {
       this.toast.show(`获得天书《${BOOKS[bookId]?.name ?? bookId}》！`);
     }
-    if (report.books.length === 0 && report.exp.some((e) => e.leveledUp)) {
+    for (const charId of report.recruited) {
+      this.toast.show(`${CHARACTERS[charId]?.name ?? charId} 加入了队伍！`);
+    }
+    if (report.switchedMap) {
+      // 过场切图：玩家新位置已写入 state.player，重建探索场景
+      this.rebuildScene();
+      this.toast.show(`—— ${getMap(this.state.player.mapId).name} ——`);
+    }
+    if (report.moralityDelta > 0) {
+      this.toast.show("行侠仗义，侠名远播。");
+    } else if (report.moralityDelta < 0) {
+      this.toast.show("行事狠辣，恶名在外。");
+    }
+    if (
+      report.books.length === 0 &&
+      report.recruited.length === 0 &&
+      report.exp.some((e) => e.leveledUp)
+    ) {
       this.toast.show("修为精进，等级提升！");
     }
   }

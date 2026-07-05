@@ -93,6 +93,18 @@ export function loadGame(
     throw new SaveLoadError("存档数据损坏（books/progress 字段无效）");
   }
 
+  if (
+    typeof migrated.morality !== "number" ||
+    !Number.isFinite(migrated.morality) ||
+    !isNumberRecord(migrated.reputation) ||
+    !Array.isArray(migrated.party) ||
+    !migrated.party.every((p) => typeof p === "string")
+  ) {
+    throw new SaveLoadError(
+      "存档数据损坏（morality/reputation/party 字段无效）",
+    );
+  }
+
   const state = migrated as unknown as GameState;
 
   const rejection = worldCheck?.(state) ?? null;
@@ -109,11 +121,23 @@ export function loadGame(
  */
 function migrate(save: Record<string, unknown>): Record<string, unknown> {
   let s = { ...save };
+  // 逐级升：每个 if 检查“当前”版本，前一步升级后下一步接着跑（v1→v2→v3…）
   // v1 → v2（M3）：新增 books（天书）与 progress（历练/熟练度）
   if (s.version === 1) {
     s = { ...s, version: 2, books: [], progress: {} };
   }
+  // v2 → v3（M4）：新增 morality（正邪值）+ reputation（门派声望）+ party（常驻队友）
+  if (s.version === 2) {
+    s = { ...s, version: 3, morality: 0, reputation: {}, party: [] };
+  }
   return s;
+}
+
+function isNumberRecord(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    Object.values(v).every((n) => typeof n === "number" && Number.isFinite(n))
+  );
 }
 
 function isValidProgress(v: unknown): boolean {

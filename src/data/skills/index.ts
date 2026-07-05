@@ -1,4 +1,4 @@
-import type { School } from "@/game/battle/types";
+import type { School, SkillStatus } from "@/game/battle/types";
 
 /** 武学定义（数据）。战斗时由 battle/setup 展开成 SkillRuntime 嵌进单位。 */
 export interface SkillDef {
@@ -9,6 +9,8 @@ export interface SkillDef {
   /** 攻击范围（曼哈顿，≥1） */
   range: number;
   mpCost: number;
+  /** 命中后给目标施加的状态（M4 §2.4，减益用负 amount）；省略=纯伤害 */
+  status?: SkillStatus;
 }
 
 export const SKILLS: Record<string, SkillDef> = {
@@ -47,5 +49,16 @@ export const SKILLS: Record<string, SkillDef> = {
     power: 18,
     range: 1,
     mpCost: 0,
+  },
+  // 黄蓉「计策·乱阵」（M4 §2.4）：无系远程控制技，微伤 + 大幅降敌身法 3 回合。
+  // 走现有 skill→选敌流程（range 3）；玩家操控黄蓉时可放。增益类「激励」待控制器支持选友方目标。
+  "jimou-luanzhen": {
+    id: "jimou-luanzhen",
+    name: "乱阵",
+    school: null,
+    power: 0,
+    range: 3,
+    mpCost: 6,
+    status: { stat: "speed", amount: -4, duration: 3 },
   },
 };

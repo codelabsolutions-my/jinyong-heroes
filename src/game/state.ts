@@ -6,7 +6,15 @@ import type { Direction } from "./geometry";
  */
 
 // v1: player/flags/clues。v2(M3): 加 books（天书）+ progress（历练/武学熟练度）。
-export const SAVE_VERSION = 2;
+// v3(M4): 加 morality（正邪值）+ reputation（门派声望）+ party（常驻队友）。
+export const SAVE_VERSION = 3;
+
+/** 正邪值上下限（越正越大）。行为累加，clamp 在此区间。 */
+export const MORALITY_MIN = -100;
+export const MORALITY_MAX = 100;
+
+/** 出战上限（含主角）。主角恒在，故 party（不含主角）最多 OUT_LIMIT-1 人。 */
+export const PARTY_OUT_LIMIT = 5;
 
 export interface PlayerState {
   mapId: string;
@@ -37,6 +45,12 @@ export interface GameState {
   books: string[];
   /** 角色养成进度，按角色 id（M3+） */
   progress: Record<string, CharProgress>;
+  /** 正邪值（M4+）：负=邪，正=侠，clamp 在 [MORALITY_MIN, MORALITY_MAX] */
+  morality: number;
+  /** 门派声望（M4+），按门派 id；未记录视为 0 */
+  reputation: Record<string, number>;
+  /** 已招募的常驻队友 charId（M4+，不含主角——主角恒在） */
+  party: string[];
 }
 
 export function newGame(spawn: {
@@ -51,6 +65,9 @@ export function newGame(spawn: {
     clues: [],
     books: [],
     progress: {},
+    morality: 0,
+    reputation: {},
+    party: [],
   };
 }
 
@@ -60,4 +77,37 @@ export function setFlag(state: GameState, flag: string): void {
 
 export function hasFlag(state: GameState, flag: string): boolean {
   return state.flags[flag] === true;
+}
+
+/** 调整正邪值（clamp 在 [MORALITY_MIN, MORALITY_MAX]）。返回调整后的值。 */
+export function adjustMorality(state: GameState, delta: number): number {
+  state.morality = Math.max(
+    MORALITY_MIN,
+    Math.min(MORALITY_MAX, state.morality + delta),
+  );
+  return state.morality;
+}
+
+export function getReputation(state: GameState, sect: string): number {
+  return state.reputation[sect] ?? 0;
+}
+
+export function addReputation(
+  state: GameState,
+  sect: string,
+  delta: number,
+): number {
+  state.reputation[sect] = getReputation(state, sect) + delta;
+  return state.reputation[sect];
+}
+
+/** 招募队友（不含主角、不重复）。返回是否新招募。 */
+export function addCompanion(state: GameState, charId: string): boolean {
+  if (charId === "player" || state.party.includes(charId)) return false;
+  state.party.push(charId);
+  return true;
+}
+
+export function hasCompanion(state: GameState, charId: string): boolean {
+  return state.party.includes(charId);
 }

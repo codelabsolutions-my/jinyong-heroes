@@ -198,6 +198,9 @@ describe("story runner — 奖励 effect 只列出不改 state", () => {
         { kind: "gainExp", amount: 120 },
         { kind: "learnSkill", skillId: "changquan", who: "player" },
         { kind: "grantBook", bookId: "book-1" },
+        { kind: "recruit", charId: "guojing" },
+        { kind: "switchMap", mapId: "niujia-village", x: 3, y: 6 },
+        { kind: "adjustMorality", delta: 5 },
         { kind: "end" },
       ],
     };
@@ -207,7 +210,14 @@ describe("story runner — 奖励 effect 只列出不改 state", () => {
       { type: "gainExp", amount: 120 },
       { type: "learnSkill", skillId: "changquan", who: "player" },
       { type: "grantBook", bookId: "book-1" },
+      { type: "recruit", charId: "guojing" },
+      { type: "switchMap", mapId: "niujia-village", x: 3, y: 6 },
+      { type: "adjustMorality", delta: 5 },
     ]);
+    // runner 不就地应用（像 grantBook/recruit：由 Game/applyStoryEffects 应用）
+    expect(state.party).toEqual([]);
+    expect(state.player.mapId).toBe("test"); // switchMap 未在 runner 里改位置
+    expect(state.morality).toBe(0); // adjustMorality 未在 runner 里改
   });
 });
 

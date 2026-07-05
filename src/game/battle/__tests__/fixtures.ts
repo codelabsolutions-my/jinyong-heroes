@@ -39,6 +39,7 @@ export function combatant(
     speed: 10,
     move: 4,
     skills: [],
+    statuses: [],
     ...partial,
   };
 }

@@ -51,5 +51,7 @@ export const xiaKeIsland: MapData = {
     { npcId: "wang-dama", x: 7, y: 7 },
     // 射雕线点火 NPC：出生点 (12,14) 右侧两格，避开 M1/M2 e2e 的"先上行"路径
     { npcId: "storyteller", x: 14, y: 14 },
+    // 鸳鸯刀线点火 NPC：出生点左侧路上，e2e 皆不走 row14 左段
+    { npcId: "biaoshi", x: 5, y: 14 },
   ],
 };

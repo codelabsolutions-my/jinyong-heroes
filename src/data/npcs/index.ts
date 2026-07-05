@@ -35,4 +35,11 @@ export const NPCS: Record<string, NpcDef> = {
     color: 0xb08d57,
     dialogueId: "storyteller-shediao",
   },
+  // 鸳鸯刀线点火 NPC（无名小村，出生点左侧僻静格，避开 e2e 路径）
+  biaoshi: {
+    id: "biaoshi",
+    name: "镖师",
+    color: 0x6b8ea3,
+    dialogueId: "biaoshi",
+  },
 };

@@ -124,4 +124,62 @@ export const ENCOUNTERS: Record<string, EncounterDef> = {
     enemies: [{ charId: "ouyangfeng", x: 9, y: 4 }],
     objective: { surviveRounds: 3 },
   },
+
+  // 鸳鸯刀第 1 章 · 官道遇劫：太岳四侠劫镖（教学战，敌方极弱）。12×8 开阔官道。
+  // allySpawns 3——主角 + 至多 2 名已招募队友并肩（M4 队伍系统）。
+  "yy-taiyue": {
+    id: "yy-taiyue",
+    name: "官道 · 太岳四侠劫镖",
+    field: {
+      terrains: FIELD_TERRAINS,
+      grid: [
+        "T..........T",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "T..........T",
+      ],
+    },
+    allySpawns: [
+      { x: 1, y: 2 },
+      { x: 1, y: 4 },
+      { x: 1, y: 6 },
+    ],
+    enemies: [
+      { charId: "taiyue-si-xia", x: 10, y: 2 },
+      { charId: "taiyue-si-xia", x: 10, y: 4 },
+      { charId: "taiyue-si-xia", x: 10, y: 6 },
+    ],
+  },
+
+  // 鸳鸯刀第 1 章 · 寿宴风波：卓天雄（T1 BOSS）+ 两名太岳四侠。可打赢的一场硬仗。
+  "yy-zhuo": {
+    id: "yy-zhuo",
+    name: "萧府 · 卓天雄",
+    field: {
+      terrains: FIELD_TERRAINS,
+      grid: [
+        "T..........T",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "............",
+        "T..........T",
+      ],
+    },
+    allySpawns: [
+      { x: 1, y: 2 },
+      { x: 1, y: 4 },
+      { x: 1, y: 6 },
+    ],
+    enemies: [
+      { charId: "zhuo-tianxiong", x: 10, y: 4 },
+      { charId: "taiyue-si-xia", x: 10, y: 6 },
+    ],
+  },
 };

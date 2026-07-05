@@ -206,4 +206,110 @@ export const DIALOGUES: Record<string, Dialogue> = {
       },
     ],
   },
+
+  // —— 鸳鸯刀线（M4）——
+  // 点火 NPC。完成后按正邪值分变体（morality→变体，M4 DoD 演示）。
+  biaoshi: {
+    id: "biaoshi",
+    variants: [
+      {
+        // 侠名在外（放走太岳四侠 → +侠名）：morality 门槛变体
+        when: { hasFlag: "yy-done", minMorality: 5 },
+        lines: [
+          {
+            speaker: "镖师",
+            text: "少侠仁义，连太岳四侠那几个活宝都肯放过——如今镖行上下谁不敬你三分！",
+          },
+        ],
+      },
+      {
+        when: { hasFlag: "yy-done" },
+        lines: [
+          {
+            speaker: "镖师",
+            text: "多谢少侠护得镖车周全。鸳鸯刀的秘密，想必少侠也已了然。",
+          },
+        ],
+      },
+    ],
+    lines: [
+      {
+        speaker: "镖师",
+        text: "少侠可有胆量？我萧家镖车行至官道，遭『太岳四侠』那伙贼人盯上了，正缺个帮手护镖。",
+      },
+      { speaker: "小虾米", text: "护镖除恶，义不容辞。走！" },
+    ],
+    effects: [{ type: "setFlag", flag: "yy-start" }],
+  },
+  "yy-intro": {
+    id: "yy-intro",
+    lines: [
+      {
+        speaker: "旁白",
+        text: "官道之上，四条汉子拦住镖车，却个个一副滑稽模样。",
+      },
+      {
+        speaker: "太岳四侠",
+        text: "此路是我开！留下镖银——诶你别看我们四个，『太岳四侠』的名号，响得很！",
+      },
+      { speaker: "小虾米", text: "响不响不知道，先教训你们一顿再说！" },
+    ],
+  },
+  "yy-taiyue-lose": {
+    id: "yy-taiyue-lose",
+    lines: [
+      { speaker: "旁白", text: "竟被这几个活宝缠住了手脚。稳住阵脚，再来！" },
+    ],
+  },
+  "yy-choice-prompt": {
+    id: "yy-choice-prompt",
+    lines: [
+      {
+        speaker: "太岳四侠",
+        text: "好汉饶命！我等只是讨口饭吃，绝无伤人之意啊！",
+      },
+      { speaker: "旁白", text: "四人跪地求饶。你如何处置？" },
+    ],
+  },
+  "yy-let-go": {
+    id: "yy-let-go",
+    lines: [
+      {
+        speaker: "小虾米",
+        text: "罢了，江湖讨生活不易。这次饶你们，往后莫再劫道。",
+      },
+      { speaker: "旁白", text: "你放走了太岳四侠。侠名，悄然传开。" },
+    ],
+  },
+  "yy-turn-in": {
+    id: "yy-turn-in",
+    lines: [
+      { speaker: "小虾米", text: "劫道就是劫道。绑了，送官府发落。" },
+      { speaker: "旁白", text: "你将四人扭送官府。手段虽严，落个心狠名声。" },
+    ],
+  },
+  "yy-zhuo-pre": {
+    id: "yy-zhuo-pre",
+    lines: [
+      {
+        speaker: "旁白",
+        text: "萧半和寿宴，宾客云集。忽然一名黑衣高手闯席——正是冲着鸳鸯刀而来的卓天雄。",
+      },
+      { speaker: "卓天雄", text: "鸳鸯刀交出来，饶你不死！" },
+      { speaker: "小虾米", text: "想要刀，先过我这一关！" },
+    ],
+  },
+  "yy-zhuo-lose": {
+    id: "yy-zhuo-lose",
+    lines: [{ speaker: "旁白", text: "卓天雄武功了得……喘口气，再战！" }],
+  },
+  "yy-outro": {
+    id: "yy-outro",
+    lines: [
+      {
+        speaker: "旁白",
+        text: "卓天雄败走。鸳鸯刀双刀合璧，刀身映出四字——『仁者无敌』。你得天书一部。",
+      },
+    ],
+  },
 };

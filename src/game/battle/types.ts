@@ -17,6 +17,26 @@ export interface Coord {
  * 战斗内的武学运行时数据。**由 setup() 从 data/skills 翻译而来并嵌进 Combatant**——
  * 这样 resolve/ai/range 完全不依赖 data 层，BattleState 自包含、可序列化、可回放。
  */
+/** 可被增益/减益的属性（M4 §2.4）。 */
+export type StatusStat = "attack" | "defense" | "speed";
+
+/** 战斗内的临时状态：某属性 +amount，持续 remaining 回合（≤0 移除）。 */
+export interface StatusEffect {
+  stat: StatusStat;
+  /** 加法增减；正=增益，负=减益 */
+  amount: number;
+  /** 剩余回合数 */
+  remaining: number;
+}
+
+/** 武学附带的状态效果（M4 §2.4，如黄蓉「乱阵」降敌 speed）。命中目标即施加。 */
+export interface SkillStatus {
+  stat: StatusStat;
+  amount: number;
+  /** 持续回合数 */
+  duration: number;
+}
+
 export interface SkillRuntime {
   id: string;
   name: string;
@@ -25,6 +45,8 @@ export interface SkillRuntime {
   /** 攻击范围（曼哈顿，≥1） */
   range: number;
   mpCost: number;
+  /** 命中后给目标施加的状态（M4 §2.4，减益用负 amount）；省略=纯伤害 */
+  status?: SkillStatus;
 }
 
 /** 普攻：无系、威力 0、范围 1、不耗内力 */
@@ -59,6 +81,15 @@ export interface Combatant {
   move: number;
   /** 已习得武学（运行时数据，setup 时从 data/skills 展开） */
   skills: SkillRuntime[];
+  /** 生效中的增益/减益（M4 §2.4），随回合衰减 */
+  statuses: StatusEffect[];
+}
+
+/** 有效属性 = 基础值 + 所有生效状态的增减（M4 §2.4）。伤害/行动序用它，不改基础值。 */
+export function effectiveStat(c: Combatant, stat: StatusStat): number {
+  let v = c[stat];
+  for (const s of c.statuses) if (s.stat === stat) v += s.amount;
+  return v;
 }
 
 /** 战场地形（复用探索地图的字符网格 + 地形表，无出入口/NPC/出生点） */

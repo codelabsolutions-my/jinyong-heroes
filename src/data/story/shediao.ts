@@ -15,6 +15,7 @@ export const shediaoLine: StoryEvent = {
   trigger: { hasFlag: "sd-line-start" },
   steps: [
     // —— 第 1 章 · 风雪惊变（牛家村） ——
+    { kind: "switchMap", mapId: "niujia-village", x: 3, y: 6 },
     { kind: "dialogue", dialogueId: "sd-intro" },
     {
       kind: "battle",
@@ -31,6 +32,7 @@ export const shediaoLine: StoryEvent = {
     { kind: "setFlag", flag: "sd-ch1-done" },
 
     // —— 第 3 章 · 华山之巅（欧阳锋，打不过也能过） ——
+    { kind: "switchMap", mapId: "huashan-summit", x: 3, y: 6 },
     { kind: "dialogue", dialogueId: "sd-huashan-intro" },
     {
       kind: "battle",
@@ -45,6 +47,9 @@ export const shediaoLine: StoryEvent = {
     { kind: "gainExp", amount: 250 },
     { kind: "grantBook", bookId: "book-shediao" },
     { kind: "setFlag", flag: "sd-done" },
+    // 郭靖/黄蓉就此结为同道，入常驻队伍（主链，胜负皆招募）
+    { kind: "recruit", charId: "guojing" },
+    { kind: "recruit", charId: "huangrong" },
     { kind: "dialogue", dialogueId: "sd-outro" },
     { kind: "end" },
   ],

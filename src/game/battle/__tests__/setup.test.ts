@@ -88,6 +88,48 @@ describe("setupBattle", () => {
     ).toThrow(/未知战友/);
   });
 
+  it("多人出战按 allySpawns 顺序摆位（M4 队伍）", () => {
+    const s = setupBattle({
+      encounter: {
+        ...ENCOUNTERS["houshan-bandits"]!,
+        allySpawns: [
+          { x: 1, y: 3 },
+          { x: 1, y: 5 },
+        ],
+      },
+      party: [CHARACTERS["player"]!, CHARACTERS["guojing"]!],
+      characterTable: CHARACTERS,
+      skillTable: SKILLS,
+      seed: 1,
+    });
+    const player = s.combatants.find((c) => c.id === "player")!;
+    const guo = s.combatants.find((c) => c.id === "guojing")!;
+    expect(player).toMatchObject({ x: 1, y: 3, side: "ally" });
+    expect(guo).toMatchObject({ x: 1, y: 5, side: "ally" });
+    expect(s.combatants.filter((c) => c.side === "ally")).toHaveLength(2);
+  });
+
+  it("setup 展开带 status 的武学（黄蓉·乱阵）", () => {
+    const s = setupBattle({
+      encounter: {
+        ...ENCOUNTERS["houshan-bandits"]!,
+        allySpawns: [{ x: 1, y: 4 }],
+      },
+      party: [CHARACTERS["huangrong"]!],
+      characterTable: CHARACTERS,
+      skillTable: SKILLS,
+      seed: 1,
+    });
+    const huang = s.combatants.find((c) => c.id === "huangrong")!;
+    const luanzhen = huang.skills.find((sk) => sk.id === "jimou-luanzhen")!;
+    expect(luanzhen.status).toEqual({
+      stat: "speed",
+      amount: -4,
+      duration: 3,
+    });
+    expect(huang.statuses).toEqual([]); // 初始无状态
+  });
+
   it("未知 charId / 武学抛错", () => {
     expect(() =>
       setupBattle({

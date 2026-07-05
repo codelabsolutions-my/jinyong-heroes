@@ -30,6 +30,9 @@ export type StoryStep =
   | { kind: "grantBook"; id?: string; bookId: string }
   | { kind: "gainExp"; id?: string; amount: number }
   | { kind: "learnSkill"; id?: string; skillId: string; who?: string }
+  | { kind: "recruit"; id?: string; charId: string }
+  | { kind: "switchMap"; id?: string; mapId: string; x: number; y: number }
+  | { kind: "adjustMorality"; id?: string; delta: number }
   | { kind: "goto"; id?: string; target: string }
   | { kind: "end"; id?: string };
 
@@ -59,7 +62,10 @@ export type StoryEffect =
   | { type: "grantClue"; clueId: string }
   | { type: "grantBook"; bookId: string }
   | { type: "gainExp"; amount: number }
-  | { type: "learnSkill"; skillId: string; who?: string };
+  | { type: "learnSkill"; skillId: string; who?: string }
+  | { type: "recruit"; charId: string }
+  | { type: "switchMap"; mapId: string; x: number; y: number }
+  | { type: "adjustMorality"; delta: number };
 
 /** runner 让出时告诉 Game 现在该做什么。 */
 export type StoryYield =

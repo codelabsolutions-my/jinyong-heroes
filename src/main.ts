@@ -31,6 +31,9 @@ async function boot() {
     clues: [...game.state.clues],
     flags: { ...game.state.flags },
     books: [...game.state.books],
+    morality: game.state.morality,
+    party: [...game.state.party],
+    reputation: { ...game.state.reputation },
     storyActive: game.isStoryActive,
     battle: game.battleSnapshot(),
   });

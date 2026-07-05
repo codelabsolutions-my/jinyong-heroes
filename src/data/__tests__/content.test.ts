@@ -280,6 +280,21 @@ describe("story events 引用完整性", () => {
               SKILLS[step.skillId],
               `${event.id}: 未知武学 ${step.skillId}`,
             ).toBeDefined();
+          } else if (step.kind === "recruit") {
+            expect(
+              CHARACTERS[step.charId],
+              `${event.id}: 招募未知角色 ${step.charId}`,
+            ).toBeDefined();
+          } else if (step.kind === "switchMap") {
+            const target = MAPS[step.mapId];
+            expect(
+              target,
+              `${event.id}: switchMap 未知地图 ${step.mapId}`,
+            ).toBeDefined();
+            expect(
+              isWalkable(target!, step.x, step.y),
+              `${event.id}: switchMap 落点 (${step.x},${step.y}) 不可站`,
+            ).toBe(true);
           } else if (step.kind === "gainExp") {
             expect(step.amount, `${event.id}: gainExp 须为正`).toBeGreaterThan(
               0,

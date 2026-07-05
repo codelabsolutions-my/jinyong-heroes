@@ -112,6 +112,27 @@ export function runEvent(
         });
         cursor++;
         continue;
+      case "recruit":
+        // 招募入常驻队伍：像 grantBook 一样只列出，由 Game 的 applyStoryEffects 应用。
+        // （同事件内后续 hasCompanion 条件如需生效，请并发一个 setFlag——与 grantBook/minBooks 一致。）
+        effects.push({ type: "recruit", charId: step.charId });
+        cursor++;
+        continue;
+      case "switchMap":
+        // 过场切图：剧情把玩家带到另一张地图（M4 §2.3）。由 Game 应用（改 player 位置 + rebuildScene）。
+        effects.push({
+          type: "switchMap",
+          mapId: step.mapId,
+          x: step.x,
+          y: step.y,
+        });
+        cursor++;
+        continue;
+      case "adjustMorality":
+        // 正邪值增减（M4 §2.5）：像 recruit 一样只列出，由 Game 的 applyStoryEffects 应用。
+        effects.push({ type: "adjustMorality", delta: step.delta });
+        cursor++;
+        continue;
       case "goto":
         cursor = indexOfStep(event, step.target);
         continue;

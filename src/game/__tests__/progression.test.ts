@@ -4,6 +4,8 @@ import {
   MAX_LEVEL,
   MAX_SKILL_LEVEL,
   applyStoryEffects,
+  baseStatsAtLevel,
+  companionStats,
   charLevel,
   expForLevel,
   expToNext,
@@ -41,6 +43,60 @@ describe("历练等级曲线", () => {
 
   it("历练等级封顶在 MAX_LEVEL", () => {
     expect(levelFromExp(99_999_999)).toBe(MAX_LEVEL);
+  });
+});
+
+describe("队友属性折算（companionStats / baseStatsAtLevel）", () => {
+  it("lv1 基准 = 主角初始裸装", () => {
+    expect(baseStatsAtLevel(1)).toEqual({
+      hp: 50,
+      mp: 20,
+      attack: 10,
+      defense: 5,
+      speed: 10,
+      move: 4,
+    });
+  });
+
+  it("按 §2.1 曲线成长，30 级锚点吻合", () => {
+    const b = baseStatsAtLevel(MAX_LEVEL);
+    expect(b).toMatchObject({
+      hp: 282,
+      mp: 136,
+      attack: 68,
+      defense: 34,
+      speed: 24,
+      move: 4,
+    });
+    // speed 每 2 级 +1
+    expect(baseStatsAtLevel(2).speed).toBe(10);
+    expect(baseStatsAtLevel(3).speed).toBe(11);
+  });
+
+  it("等级越界 clamp 到 [1, MAX_LEVEL]", () => {
+    expect(baseStatsAtLevel(0)).toEqual(baseStatsAtLevel(1));
+    expect(baseStatsAtLevel(999)).toEqual(baseStatsAtLevel(MAX_LEVEL));
+  });
+
+  it("缺省系数 = 同级基准原样", () => {
+    expect(companionStats(5)).toEqual(baseStatsAtLevel(5));
+  });
+
+  it("郭靖系数（hp1.3 def1.2 spd0.8）四舍五入折算", () => {
+    // 假设与主角同 10 级：基准 hp122 def14 spd14 atk28
+    const b = baseStatsAtLevel(10);
+    const guo = companionStats(10, { hp: 1.3, defense: 1.2, speed: 0.8 });
+    expect(guo.hp).toBe(Math.round(b.hp * 1.3));
+    expect(guo.defense).toBe(Math.round(b.defense * 1.2));
+    expect(guo.speed).toBe(Math.round(b.speed * 0.8));
+    expect(guo.attack).toBe(b.attack); // 未给系数 = ×1
+  });
+
+  it("弱项系数不把关键属性打到 0（下限保护）", () => {
+    const s = companionStats(1, { attack: 0.05, hp: 0.001, speed: 0.01 });
+    expect(s.attack).toBeGreaterThanOrEqual(1);
+    expect(s.hp).toBeGreaterThanOrEqual(1);
+    expect(s.speed).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -156,5 +212,61 @@ describe("applyStoryEffects", () => {
       player: "xiaoxia",
     });
     expect(charLevel(state, "xiaoxia")).toBe(2);
+  });
+
+  it("adjustMorality 改正邪值、汇报净变化、clamp", () => {
+    const state = s();
+    const r1 = applyStoryEffects(
+      state,
+      [
+        { type: "adjustMorality", delta: 10 },
+        { type: "adjustMorality", delta: 5 },
+      ],
+      { player: "player" },
+    );
+    expect(state.morality).toBe(15);
+    expect(r1.moralityDelta).toBe(15);
+    // clamp：moralityDelta 汇报**实际**变化（到上限后为 0），不是 raw amount
+    const r2 = applyStoryEffects(
+      state,
+      [{ type: "adjustMorality", delta: 999 }],
+      { player: "player" },
+    );
+    expect(state.morality).toBe(100); // MORALITY_MAX
+    expect(r2.moralityDelta).toBe(85); // 100 - 15，而非 999
+  });
+
+  it("switchMap 改玩家位置并置 report.switchedMap", () => {
+    const state = s();
+    expect(state.player.mapId).toBe("m");
+    const report = applyStoryEffects(
+      state,
+      [{ type: "switchMap", mapId: "huashan-summit", x: 3, y: 6 }],
+      { player: "player" },
+    );
+    expect(state.player).toMatchObject({ mapId: "huashan-summit", x: 3, y: 6 });
+    expect(report.switchedMap).toBe(true);
+  });
+
+  it("无 switchMap 时 report.switchedMap 为 false", () => {
+    const report = applyStoryEffects(s(), [{ type: "setFlag", flag: "a" }], {
+      player: "player",
+    });
+    expect(report.switchedMap).toBe(false);
+  });
+
+  it("recruit 入队并汇报，幂等（重复招募不重复汇报）", () => {
+    const state = s();
+    const report = applyStoryEffects(
+      state,
+      [
+        { type: "recruit", charId: "guojing" },
+        { type: "recruit", charId: "huangrong" },
+        { type: "recruit", charId: "guojing" }, // 幂等
+      ],
+      { player: "player" },
+    );
+    expect(state.party).toEqual(["guojing", "huangrong"]);
+    expect(report.recruited).toEqual(["guojing", "huangrong"]);
   });
 });

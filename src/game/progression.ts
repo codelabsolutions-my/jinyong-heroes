@@ -1,5 +1,11 @@
 import { grantClue } from "./journal";
-import { type GameState, type CharProgress, setFlag } from "./state";
+import {
+  type GameState,
+  type CharProgress,
+  addCompanion,
+  adjustMorality,
+  setFlag,
+} from "./state";
 import type { StoryEffect } from "./story/types";
 
 /**
@@ -13,6 +19,64 @@ import type { StoryEffect } from "./story/types";
 
 export const MAX_LEVEL = 30;
 export const MAX_SKILL_LEVEL = 10;
+
+/**
+ * 队友属性折算（M4，CHARACTERS §2.2/§4）：`队友属性 = 主角同级基准 × 角色系数`。
+ * 主角同级基准 = 主角在该等级的裸装数值，按 §2.1 每级成长推。move 是设计资源不通胀，
+ * 只靠轻功类武学提升（M4+），此处 move 系数默认 1（=4）。
+ */
+export interface StatBlock {
+  hp: number;
+  mp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  move: number;
+}
+
+/** 队友成长系数（各项乘数，缺省 1.0）。数据放 CharacterDef.coeff。 */
+export interface CompanionCoeff {
+  hp?: number;
+  mp?: number;
+  attack?: number;
+  defense?: number;
+  speed?: number;
+  move?: number;
+}
+
+/**
+ * 主角某等级的裸装基准（§2.1：lv1 = hp50/mp20/atk10/def5/spd10/move4；
+ * 每级 hp+8 mp+4 atk+2 def+1、speed 每 2 级 +1、move 固定 4）。
+ * 30 级约 hp282/mp136/atk68/def34/spd24（doc"约290"为四舍五入估值）。
+ */
+export function baseStatsAtLevel(level: number): StatBlock {
+  const L = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+  return {
+    hp: 50 + 8 * (L - 1),
+    mp: 20 + 4 * (L - 1),
+    attack: 10 + 2 * (L - 1),
+    defense: 5 + (L - 1),
+    speed: 10 + Math.floor((L - 1) / 2),
+    move: 4,
+  };
+}
+
+/** 按系数把同级基准折算成队友有效属性（四舍五入，hp/mp 至少 1）。 */
+export function companionStats(
+  level: number,
+  coeff: CompanionCoeff = {},
+): StatBlock {
+  const b = baseStatsAtLevel(level);
+  const scale = (v: number, c: number | undefined) => Math.round(v * (c ?? 1));
+  return {
+    hp: Math.max(1, scale(b.hp, coeff.hp)),
+    mp: Math.max(0, scale(b.mp, coeff.mp)),
+    attack: Math.max(1, scale(b.attack, coeff.attack)),
+    defense: Math.max(0, scale(b.defense, coeff.defense)),
+    speed: Math.max(1, scale(b.speed, coeff.speed)),
+    move: Math.max(1, scale(b.move, coeff.move)),
+  };
+}
 
 /** 从 level 升到 level+1 所需历练；满级返回 null。 */
 export function expToNext(level: number): number | null {
@@ -161,6 +225,12 @@ export interface StoryEffectReport {
   exp: ExpGain[];
   /** 本批新习得的武学 */
   learned: { charId: string; skillId: string }[];
+  /** 本批新招募的队友 charId */
+  recruited: string[];
+  /** 本批是否发生过场切图（Game 据此 rebuildScene；玩家新位置已写入 state.player） */
+  switchedMap: boolean;
+  /** 本批正邪值净变化（正=偏侠，负=偏邪；0=无变化） */
+  moralityDelta: number;
 }
 
 /**
@@ -173,7 +243,14 @@ export function applyStoryEffects(
   effects: readonly StoryEffect[],
   opts: { player: string },
 ): StoryEffectReport {
-  const report: StoryEffectReport = { books: [], exp: [], learned: [] };
+  const report: StoryEffectReport = {
+    books: [],
+    exp: [],
+    learned: [],
+    recruited: [],
+    switchedMap: false,
+    moralityDelta: 0,
+  };
   for (const e of effects) {
     switch (e.type) {
       case "setFlag":
@@ -193,6 +270,23 @@ export function applyStoryEffects(
         if (learnSkill(state, who, e.skillId)) {
           report.learned.push({ charId: who, skillId: e.skillId });
         }
+        break;
+      }
+      case "recruit":
+        if (addCompanion(state, e.charId)) report.recruited.push(e.charId);
+        break;
+      case "switchMap":
+        // 过场切图：写入新位置（纯状态）；场景重建由 Game 据 report.switchedMap 处理
+        state.player.mapId = e.mapId;
+        state.player.x = e.x;
+        state.player.y = e.y;
+        report.switchedMap = true;
+        break;
+      case "adjustMorality": {
+        // 汇报**实际**变化（clamp 后），避免已到上/下限时仍弹侠名/恶名提示
+        const before = state.morality;
+        adjustMorality(state, e.delta); // clamp 在 state 层
+        report.moralityDelta += state.morality - before;
         break;
       }
     }

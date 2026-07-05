@@ -1,3 +1,5 @@
+import type { CompanionCoeff } from "@/game/progression";
+
 /** 战斗单位模板（数据）。数值见 CHARACTERS_AND_SKILLS §1、§2.3。 */
 
 export interface CharacterDef {
@@ -14,6 +16,8 @@ export interface CharacterDef {
   move: number;
   /** 已习得武学 id（查 SKILLS） */
   skills: string[];
+  /** 队友成长系数（M4，CHARACTERS §4）；招募后有效属性 = 主角同级基准×系数。敌人/主角不填。 */
+  coeff?: CompanionCoeff;
 }
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -58,9 +62,11 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     speed: 8,
     move: 4,
     skills: ["xianglong"],
+    // 重装战士（CHARACTERS §4）：招募后有效属性 = 主角同级基准 × 系数
+    coeff: { hp: 1.3, defense: 1.2, speed: 0.8 },
   },
   // 黄蓉：军师型（§4 atk0.7 spd1.2）。"计策"（乱阵/激励）是控制技，本引擎（伤害制）
-  // 暂不支持增益/减益 → M4 实装；M3 先以普攻并肩，机动偏高。
+  // 暂不支持增益/减益 → M4 §2.4 实装；先以普攻并肩，机动偏高。
   huangrong: {
     id: "huangrong",
     name: "黄蓉",
@@ -71,7 +77,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     defense: 7,
     speed: 13,
     move: 4,
-    skills: [],
+    skills: ["jimou-luanzhen"],
+    coeff: { attack: 0.7, speed: 1.2 },
   },
   // 黄河鬼：射雕第 1 章 BOSS「黄河四鬼」的单体模板（encounter 里放 4 个）。T1-T2 杂兵。
   "huanghe-gui": {
@@ -98,5 +105,33 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     speed: 16,
     move: 4,
     skills: ["hamagong"],
+  },
+
+  // —— 鸳鸯刀线（M4，STORY_BIBLE §2.1 教学线）——
+  // 太岳四侠：喜剧客串劫匪，T1 极弱（教学战稳赢）。encounter 里放数个（yy-taiyue 放 3）。
+  "taiyue-si-xia": {
+    id: "taiyue-si-xia",
+    name: "太岳四侠",
+    color: 0xb5793a,
+    hp: 12,
+    mp: 0,
+    attack: 6,
+    defense: 2,
+    speed: 7,
+    move: 3,
+    skills: [],
+  },
+  // 卓天雄：鸳鸯刀线 BOSS，T1 BOSS。教学线首通常为无队友单挑，数值调到低级主角可solo 打赢。
+  "zhuo-tianxiong": {
+    id: "zhuo-tianxiong",
+    name: "卓天雄",
+    color: 0x7a4a2a,
+    hp: 30,
+    mp: 0,
+    attack: 8,
+    defense: 4,
+    speed: 9,
+    move: 4,
+    skills: [],
   },
 };

@@ -49,9 +49,9 @@ describe("save / load", () => {
     expect(() => loadGame(storage)).toThrow(/版本不兼容/);
   });
 
-  it("migrates a v1 save to v2, filling books/progress defaults", () => {
+  it("migrates a v1 save all the way to v3, filling all new defaults", () => {
     const storage = memoryStorage();
-    // 手写一个 v1 存档（没有 books/progress 字段）
+    // 手写一个 v1 存档（没有 books/progress，也没有 morality/reputation/party）
     const v1 = {
       version: 1,
       player: { mapId: "houshan-path", x: 3, y: 4, facing: "left" },
@@ -62,22 +62,68 @@ describe("save / load", () => {
 
     const loaded = loadGame(storage);
     expect(loaded).not.toBeNull();
-    expect(loaded?.version).toBe(2);
+    expect(loaded?.version).toBe(3);
+    // v2 补的
     expect(loaded?.books).toEqual([]);
     expect(loaded?.progress).toEqual({});
+    // v3 补的
+    expect(loaded?.morality).toBe(0);
+    expect(loaded?.reputation).toEqual({});
+    expect(loaded?.party).toEqual([]);
     // 旧字段原样保留，never 静默丢档
     expect(loaded?.flags).toEqual({ "met-sweeper": true });
     expect(loaded?.clues).toEqual(["main-fourteen-books"]);
     expect(loaded?.player.mapId).toBe("houshan-path");
   });
 
-  it("preserves an existing v2 progress/books round-trip", () => {
+  it("migrates a v2 save to v3, filling morality/reputation/party defaults", () => {
+    const storage = memoryStorage();
+    const v2 = {
+      version: 2,
+      player: { mapId: "m", x: 1, y: 2, facing: "up" },
+      flags: {},
+      clues: [],
+      books: ["book-shediao"],
+      progress: { player: { exp: 100, proficiency: {} } },
+    };
+    storage.data.set(SAVE_KEY, JSON.stringify(v2));
+
+    const loaded = loadGame(storage);
+    expect(loaded?.version).toBe(3);
+    expect(loaded?.books).toEqual(["book-shediao"]); // v2 数据保留
+    expect(loaded?.morality).toBe(0);
+    expect(loaded?.reputation).toEqual({});
+    expect(loaded?.party).toEqual([]);
+  });
+
+  it("preserves an existing v3 round-trip (books/progress/morality/reputation/party)", () => {
     const storage = memoryStorage();
     const s = newGame({ mapId: "m", x: 0, y: 0 });
     s.books.push("book-shediao");
     s.progress["player"] = { exp: 240, proficiency: { changquan: 12 } };
+    s.morality = 35;
+    s.reputation["shaolin"] = 20;
+    s.party.push("guojing");
     saveGame(storage, s);
     expect(loadGame(storage)).toEqual(s);
+  });
+
+  it("rejects malformed morality/reputation/party", () => {
+    const base = newGame({ mapId: "m", x: 0, y: 0 });
+    for (const patch of [
+      { morality: "high" },
+      { morality: NaN },
+      { reputation: [1, 2] },
+      { reputation: { shaolin: "lots" } },
+      { party: "guojing" },
+      { party: [1, 2] },
+    ]) {
+      const storage = memoryStorage();
+      storage.data.set(SAVE_KEY, JSON.stringify({ ...base, ...patch }));
+      expect(() => loadGame(storage), JSON.stringify(patch)).toThrow(
+        SaveLoadError,
+      );
+    }
   });
 
   it("rejects malformed progress field", () => {

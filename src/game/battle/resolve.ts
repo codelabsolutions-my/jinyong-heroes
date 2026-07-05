@@ -9,6 +9,7 @@ import {
   type Combatant,
   type SkillRuntime,
   combatantById,
+  effectiveStat,
   livingOf,
 } from "./types";
 
@@ -84,9 +85,9 @@ function applyStrike(
 
   const dmg = computeDamage(
     {
-      attack: attacker.attack,
+      attack: effectiveStat(attacker, "attack"),
       power: skill.power,
-      defense: target.defense,
+      defense: effectiveStat(target, "defense"),
       attackerSchool: skill.school,
       defenderSchool: null, // 单位无常驻系别；防守方按无系（M2）
     },
@@ -99,7 +100,21 @@ function applyStrike(
     `${attacker.name} ${verb}，${target.name} 受 ${dmg} 点伤害` +
       (target.hp === 0 ? "，倒下了！" : "。"),
   );
+  // 命中后施加状态（M4 §2.4，减益）；单位已倒下则不挂
+  if (skill.status && target.hp > 0) {
+    target.statuses.push({
+      stat: skill.status.stat,
+      amount: skill.status.amount,
+      remaining: skill.status.duration,
+    });
+    const dir = skill.status.amount < 0 ? "下降" : "上升";
+    pushLog(state, `${target.name} 的${statName(skill.status.stat)}${dir}了！`);
+  }
   return true;
+}
+
+function statName(stat: "attack" | "defense" | "speed"): string {
+  return stat === "attack" ? "攻击" : stat === "defense" ? "防御" : "身法";
 }
 
 function updateOutcome(state: BattleState): void {
@@ -140,11 +155,20 @@ function endTurn(state: BattleState): void {
     state.activeId = state.turnQueue.shift() ?? null;
     return;
   }
-  // 新回合
+  // 新回合：先给所有状态计时 -1（≤0 移除），再按有效属性重排行动序
   state.round += 1;
+  decayStatuses(state);
   const order = turnOrder(state);
   state.activeId = order[0] ?? null;
   state.turnQueue = order.slice(1);
+}
+
+/** 每新回合把所有单位的状态剩余回合 -1，到期（≤0）移除（M4 §2.4）。 */
+function decayStatuses(state: BattleState): void {
+  for (const c of state.combatants) {
+    for (const s of c.statuses) s.remaining -= 1;
+    c.statuses = c.statuses.filter((s) => s.remaining > 0);
+  }
 }
 
 /** UI 只读最后一条；保留少量尾部即可，封顶避免 resolve 每步全量 structuredClone 越来越贵 */
