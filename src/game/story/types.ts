@@ -34,6 +34,7 @@ export type StoryStep =
   | { kind: "switchMap"; id?: string; mapId: string; x: number; y: number }
   | { kind: "adjustMorality"; id?: string; delta: number }
   | { kind: "goto"; id?: string; target: string }
+  | { kind: "ending"; id?: string; endingId: string }
   | { kind: "end"; id?: string };
 
 /** choice 的一个分支：条件不满足则该项对玩家不可选。 */
@@ -72,6 +73,7 @@ export type StoryYield =
   | { kind: "dialogue"; dialogueId: string }
   | { kind: "choice"; prompt?: string; options: StoryChoiceOption[] }
   | { kind: "battle"; battleId: string }
+  | { kind: "ending"; endingId: string }
   | { kind: "end" };
 
 /** 让给 UI 的一个可选项：只包含当前条件下**可选**的分支，附原始下标供回喂。 */
@@ -98,7 +100,7 @@ export interface StoryRunState {
   eventId: string;
   cursor: number;
   done: boolean;
-  awaiting: null | "dialogue" | "choice" | "battle";
+  awaiting: null | "dialogue" | "choice" | "battle" | "ending";
 }
 
 /** runEvent 的返回：新游标 + 本次产生的副作用 + 现在让 UI 做什么。 */

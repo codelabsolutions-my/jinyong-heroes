@@ -136,6 +136,12 @@ export function runEvent(
       case "goto":
         cursor = indexOfStep(event, step.target);
         continue;
+      case "ending":
+        // 结局演出（M5）：让给 Game 放结局画面；玩家确认后顺序推进到收尾的 end。
+        return yieldAt(run, cursor, effects, "ending", {
+          kind: "ending",
+          endingId: step.endingId,
+        });
       case "end":
         return finish(event, state, event.steps.length, effects);
       case "dialogue":
@@ -181,8 +187,8 @@ function resumeFrom(
   state: GameState,
 ): number {
   const cursor = event.steps.indexOf(step);
-  if (awaiting === "dialogue") {
-    // 对话看完，顺序推进
+  if (awaiting === "dialogue" || awaiting === "ending") {
+    // 对话看完 / 结局画面确认后，顺序推进（结局后一步通常是 end）
     return cursor + 1;
   }
   if (awaiting === "choice") {

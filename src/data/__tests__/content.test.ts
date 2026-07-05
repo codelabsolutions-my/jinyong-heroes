@@ -9,6 +9,7 @@ import { CHARACTERS } from "../characters";
 import { ENCOUNTERS } from "../battles";
 import { BOOKS } from "../books";
 import { STORY_EVENTS } from "../story";
+import { ENDINGS } from "../endings";
 import { collectStepRefs } from "@/game/story/runner";
 import type { Effect } from "@/game/dialogue";
 
@@ -299,6 +300,11 @@ describe("story events 引用完整性", () => {
             expect(step.amount, `${event.id}: gainExp 须为正`).toBeGreaterThan(
               0,
             );
+          } else if (step.kind === "ending") {
+            expect(
+              ENDINGS[step.endingId],
+              `${event.id}: 未知结局 ${step.endingId}`,
+            ).toBeDefined();
           }
         }
       });

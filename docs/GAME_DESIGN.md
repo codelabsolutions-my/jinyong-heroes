@@ -145,7 +145,11 @@
 - **世界地图集**（ADR #32，`data/maps/world.ts` + `scripts/gen-world-maps.mjs`）：比照原版的 42 张互联
   地图（中原/江南/塞外/川陕 区域大图 + 城镇 + 门派 + 秘境），确定性生成 + 自校验，经 jianghu (5,19)→zhongyuan
   接入。均为可步行**空壳**，NPC/剧情按 STORY_BIBLE 逐图填充（加内容只动 `data/`，ADR #3）。
-- **M5 仍待做**（转后续 workstream）：结局系统、标题/存档入口、像素素材、世界各图填充 NPC/剧情。
+- **结局系统**（ADR #33，`data/endings` + `data/story/ending.ts` + `ui/EndingScreen`）：新增 `ending`
+  StoryStep（runner `awaiting:"ending"`）；首个结局「江湖初程」由 `minBooks:2`（集齐射雕+鸳鸯刀两天书）
+  自动触发→全屏结局画面→空格落幕。**「纵向切片」DoD 达成：可从新游戏玩到一个结局**（verify-ending e2e）。
+  结局是里程碑标记非硬 game-over（开放世界通关后可继续）。多结局矩阵（§3.2 ≥4 结局）后续扩充。
+- **M5 仍待做**（转后续 workstream）：标题/存档入口、像素素材、世界各图填充 NPC/剧情、多结局矩阵。
 
 ## 5. 数据驱动的内容格式
 

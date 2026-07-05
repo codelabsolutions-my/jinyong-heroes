@@ -36,6 +36,7 @@ async function boot() {
     reputation: { ...game.state.reputation },
     storyActive: game.isStoryActive,
     storyChoice: game.storyChoiceSnapshot(),
+    ending: game.endingSnapshot(),
     battle: game.battleSnapshot(),
   });
 }

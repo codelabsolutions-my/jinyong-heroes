@@ -7,6 +7,7 @@ import { HintBar } from "@/ui/HintBar";
 import { JournalPanel } from "@/ui/JournalPanel";
 import { StatusPanel } from "@/ui/StatusPanel";
 import { ChoiceBox } from "@/ui/ChoiceBox";
+import { EndingScreen } from "@/ui/EndingScreen";
 import { Toast } from "@/ui/Toast";
 import { CLUES } from "@/data/clues";
 import { DIALOGUES } from "@/data/dialogues";
@@ -28,6 +29,7 @@ import { SaveLoadError, type KVStorage, loadGame, saveGame } from "@/game/save";
 import { type GameState, newGame, setFlag } from "@/game/state";
 import { STORY_EVENTS } from "@/data/story";
 import { BOOKS } from "@/data/books";
+import { ENDINGS } from "@/data/endings";
 import { applyStoryEffects, charLevel } from "@/game/progression";
 import {
   eventDoneFlag,
@@ -44,7 +46,13 @@ import type {
 } from "@/game/story/types";
 
 export type GameMode =
-  "explore" | "dialogue" | "journal" | "status" | "storyChoice" | "battle";
+  | "explore"
+  | "dialogue"
+  | "journal"
+  | "status"
+  | "storyChoice"
+  | "ending"
+  | "battle";
 
 /** 胜利后置的 flag 约定（对话变体据此不再重复触发同一场战斗） */
 export const battleWonFlag = (battleId: string): string =>
@@ -68,7 +76,9 @@ export class Game {
   private readonly journal: JournalPanel;
   private readonly status: StatusPanel;
   private readonly choiceBox: ChoiceBox;
+  private readonly endingScreen: EndingScreen;
   private readonly toast: Toast;
+  private endingId: string | null = null;
   // 当前抉择的可选项（runner 按 when 过滤后的），选中下标 → option 回喂 runner
   private pendingChoice: StoryChoiceOption[] = [];
   private pendingChoicePrompt = "";
@@ -100,6 +110,7 @@ export class Game {
     this.journal = new JournalPanel(screenWidth, screenHeight);
     this.status = new StatusPanel(screenWidth, screenHeight);
     this.choiceBox = new ChoiceBox(screenWidth, screenHeight);
+    this.endingScreen = new EndingScreen(screenWidth, screenHeight);
     this.toast = new Toast(screenWidth);
     this.hintBar = new HintBar(screenWidth, screenHeight);
     this.hintBar.set(EXPLORE_HINT);
@@ -112,6 +123,8 @@ export class Game {
       this.status.view,
       this.choiceBox.view,
       this.toast.view,
+      // 结局画面全屏覆盖，置于最上
+      this.endingScreen.view,
     );
 
     this.rebuildScene();
@@ -164,6 +177,9 @@ export class Game {
         break;
       case "storyChoice":
         this.updateStoryChoice();
+        break;
+      case "ending":
+        this.updateEnding();
         break;
       case "battle":
         this.updateBattle(deltaMS);
@@ -375,9 +391,38 @@ export class Game {
         this.mode = "storyChoice";
         this.hintBar.set("↑↓ 选择 · 空格 确认");
         break;
+      case "ending": {
+        // 结局演出（ADR #33）：全屏结局画面，玩家空格确认后推进到收尾 end。
+        const ending = ENDINGS[res.yield.endingId];
+        if (!ending) {
+          // 坏链（应被 content.test 拦下）：安全落幕，不卡死
+          this.advanceStory(undefined);
+          break;
+        }
+        this.endingId = res.yield.endingId;
+        this.endingScreen.show(ending);
+        // 结局画面永远置顶（enterBattle 曾把 toast 提到最上，别让残留 toast 盖住结局）
+        this.view.setChildIndex(
+          this.endingScreen.view,
+          this.view.children.length - 1,
+        );
+        this.mode = "ending";
+        this.hintBar.set("空格 继续");
+        break;
+      }
       case "end":
         this.endStory();
         break;
+    }
+  }
+
+  private updateEnding() {
+    if (this.input.takePress("Space", "Enter")) {
+      this.endingScreen.hide();
+      this.endingId = null;
+      this.input.clearDirections();
+      // 继续推进剧情（结局后一步是 end → endStory 落幕回探索）
+      this.advanceStory(undefined);
     }
   }
 
@@ -534,6 +579,11 @@ export class Game {
   /** e2e / 调试探针：是否正在演一条剧情线 */
   get isStoryActive(): boolean {
     return this.storyRun !== null;
+  }
+
+  /** e2e / 调试探针：当前结局 id（非 ending 模式为 null） */
+  endingSnapshot(): string | null {
+    return this.mode === "ending" ? this.endingId : null;
   }
 
   /** e2e / 调试探针：当前抉择菜单（非 storyChoice 模式为 null） */

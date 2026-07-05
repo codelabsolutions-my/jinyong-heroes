@@ -365,3 +365,30 @@ describe("story runner — selectTriggeredEvent", () => {
     expect(selectTriggeredEvent(evs, state)?.id).toBe("open");
   });
 });
+
+describe("ending step（M5，ADR #33）", () => {
+  it("ending 让出 ending yield，确认后推进到 end 落幕", () => {
+    const state = freshState();
+    const ev: StoryEvent = {
+      id: "t-ending",
+      steps: [{ kind: "ending", endingId: "e1" }, { kind: "end" }],
+    };
+    const { yields } = play(ev, state, [undefined]);
+    expect(yields[0]).toEqual({ kind: "ending", endingId: "e1" });
+    expect(yields.at(-1)?.kind).toBe("end");
+    // 落幕后置完成 flag（selectTriggeredEvent 据此去重，不重复触发）
+    expect(state.flags[eventDoneFlag("t-ending")]).toBe(true);
+  });
+
+  it("结局事件 minBooks:2 触发：不足 2 天书不触发，够了才触发", () => {
+    const ending: StoryEvent = {
+      id: "ending-x",
+      trigger: { minBooks: 2 },
+      steps: [{ kind: "ending", endingId: "e1" }, { kind: "end" }],
+    };
+    const s = freshState();
+    expect(selectTriggeredEvent([ending], s)).toBeUndefined();
+    s.books.push("book-a", "book-b");
+    expect(selectTriggeredEvent([ending], s)?.id).toBe("ending-x");
+  });
+});
