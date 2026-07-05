@@ -164,8 +164,12 @@ node scripts/verify-m2.mjs http://localhost:5200 /tmp/shots
    读档瞬移后续会用）。
 5. golden-template 带来的 `.claude/skills/prod-migrate`、`verify-data`、`.env.example`
    对本项目暂无意义 — 无害，留着；若碍事可在独立 chore 分支清理。
-6. 无远端仓库，CI workflows（`.github/workflows/`）从未跑过 — 若建 GitHub 远端，
-   第一次推送后检查 ci.yml/smoke.yml 是否适配（smoke 假设有 .env/migrations，需删减）。
+6. ~~无远端仓库，CI workflows 从未跑过~~ **已解决（2026-07-05）**：远端 = GitHub
+   `codelabsolutions-my/jinyong-heroes`；ci.yml/smoke.yml 原为 golden-template 后端模板
+   （Python `uv`/postgres/pnpm），M4/M5 首推全红。已改为纯前端 npm 版：ci = docs-guard +
+   gitleaks + `npm ci`/lint/test/build；smoke = 从零 `npm ci` + 产线构建 + dist 校验。删掉
+   backend 作业与 pnpm/alembic/.env 假设。docs-guard 的 `sig` 正则也改指本项目实际敏感路径
+   （src/game、src/core、.github/workflows）。
 
 ---
 
