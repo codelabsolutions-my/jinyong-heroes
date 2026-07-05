@@ -81,14 +81,16 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     coeff: { attack: 0.7, speed: 1.2 },
   },
   // 黄河鬼：射雕第 1 章 BOSS「黄河四鬼」的单体模板（encounter 里放 4 个）。T1-T2 杂兵。
+  // 射雕线杂兵（M5 §2.1 rebalance）：队友改按等级折算后，lv1 郭靖已非旧静态强度，
+  // 四鬼数值下调至开局队伍可战而胜（原 24/12/5 是为旧静态郭靖 hp90/atk16 调的）。
   "huanghe-gui": {
     id: "huanghe-gui",
     name: "黄河鬼",
     color: 0x6b7f4a,
-    hp: 24,
+    hp: 16,
     mp: 0,
-    attack: 12,
-    defense: 5,
+    attack: 8,
+    defense: 3,
     speed: 9,
     move: 3,
     skills: [],

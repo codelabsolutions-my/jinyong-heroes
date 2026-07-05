@@ -3,7 +3,7 @@ import type { MapData } from "./types";
 /**
  * 起始地图：无名小村（占位）。
  * 对应原版开局"小虾米被扔进武侠世界"后的第一片可探索区域。
- * . 草地  ~ 水  T 树  # 山岩  = 道路  H 房屋
+ * . 草地  ~ 水  T 树  # 山岩  = 道路  H 房屋  O 村口（通江湖大地图）
  */
 export const xiaKeIsland: MapData = {
   id: "xiake-island",
@@ -16,6 +16,7 @@ export const xiaKeIsland: MapData = {
     "#": { color: 0x6b6257, walkable: false, name: "rock" },
     "=": { color: 0xa8926b, walkable: true, name: "road" },
     H: { color: 0x8a4a32, walkable: false, name: "house" },
+    O: { color: 0xd8b25a, walkable: true, name: "village-gate" },
   },
   grid: [
     "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
@@ -35,7 +36,7 @@ export const xiaKeIsland: MapData = {
     "~#...=......==......=..T....#~",
     "~#...=......==......=.......#~",
     "~#...========..======.......#~",
-    "~#..........................#~",
+    "~#............O.............#~",
     "~#...TT........TT....HH.....#~",
     "~#...TT........TT....HH.....#~",
     "~##.........................#~",
@@ -44,8 +45,12 @@ export const xiaKeIsland: MapData = {
     "~~~~~~####~~~~~~~~####~~~~~~~~",
     "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
   ],
-  // 东侧大路尽头 → 后山小径
-  exits: [{ x: 27, y: 10, toMap: "houshan-path", toX: 2, toY: 8 }],
+  exits: [
+    // 东侧大路尽头 → 后山小径
+    { x: 27, y: 10, toMap: "houshan-path", toX: 2, toY: 8 },
+    // 南侧村口 → 江湖大地图（M5 开放世界枢纽）；(14,17) 在所有 e2e 按键路径之外
+    { x: 14, y: 17, toMap: "jianghu", toX: 18, toY: 18 },
+  ],
   npcs: [
     { npcId: "aniu", x: 12, y: 12 },
     { npcId: "wang-dama", x: 7, y: 7 },

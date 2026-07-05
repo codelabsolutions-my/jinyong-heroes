@@ -3,12 +3,14 @@ import { xiaKeIsland } from "./xiaKeIsland";
 import { houshanPath } from "./houshanPath";
 import { niujiaVillage } from "./niujiaVillage";
 import { huashanSummit } from "./huashanSummit";
+import { jianghu } from "./jianghu";
 
 export const MAPS: Record<string, MapData> = {
   [xiaKeIsland.id]: xiaKeIsland,
   [houshanPath.id]: houshanPath,
   [niujiaVillage.id]: niujiaVillage,
   [huashanSummit.id]: huashanSummit,
+  [jianghu.id]: jianghu,
 };
 
 /** 新游戏的起始地图 */

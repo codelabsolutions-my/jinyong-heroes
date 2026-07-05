@@ -116,10 +116,31 @@
 - **正邪抉择**（ADR #26）：`adjustMorality` StoryStep；鸳鸯刀线「放走(+8)/扭送(-5)太岳四侠」，
   完成后镖师按 `minMorality` 走不同对话变体。
 - **多线并行**：`STORY_EVENTS` 现有射雕线 + 鸳鸯刀线（STORY_BIBLE §2.1，护镖教学线），各自入口 NPC 点火。
-- **M4 刻意简化**（ADR #27，转 M5）：① 队友 `coeff`/`companionStats` 尚未接入 `setupBattle`（队友/主角
-  战斗数值仍用静态 `CharacterDef`，等级/系数折算是 M5，接入需重新平衡已发布数值）；② `choice` 无交互
+- **M5 §2.1 折算接入**（ADR #28，补 M4 简化①）：`setupBattle` 收 `playerLevel`，**我方**按等级/系数折算——
+  主角 `baseStatsAtLevel(level)`、带 `coeff` 的队友/战友军 `companionStats(level, coeff)`，**敌方保持静态**；
+  `enterBattle` 传 `charLevel(state,"player")`。lv1 基准 = 旧发布数值，向后兼容。
+- **M4 刻意简化**（ADR #27，转 M5）：① ~~队友 `coeff`/`companionStats` 未接入战斗~~ **已由 M5 §2.1 / ADR #28 补齐**；② `choice` 无交互
   选择 UI（Game 自动选 option0，故游戏内暂走默认支；story 数据两支俱全、单测可验）；③ 友方增益技需控制器
   支持选 ally 目标；④ 乱阵身法减益对行动序影响 2 回合（speed 每回合首读的边界）；⑤ 消耗品/商店 M5。
+
+## 4C. 江湖大地图 · 人物状态页（M5 进行中）
+
+- **江湖大地图**（ADR #30，`data/maps/jianghu`）：开放世界枢纽，官道网连四镇入口（无名小村/牛家村/
+  华山/后山）。无名小村南口 `(14,17)` 新出口通江湖；此前只能靠剧情 `switchMap` 抵达的牛家村/华山
+  现可自由步行抵达。返程走既有链（zone→后山→村→江湖）闭合。纯数据、零引擎改动（ADR #3/#4）。
+  连带 rebalance：`huanghe-gui` 下调（24/12/5→16/8/3），使 §2.1 折算后的 lv1 队伍能打赢黄河四鬼战。
+- **人物状态页**（ADR #29，`ui/StatusPanel`，`C`/`Esc`）：等级/属性（按等级折算，与战斗同源）/侠名
+  （`moralityLabel`）/历练条/武学（自带∪习得）/队伍（按系数折算）/门派声望。纯展示只读 GameState。
+- e2e：`scripts/verify-m5.mjs`（状态页开关 + 步行进江湖 + 江湖步行抵后山）。
+- **折算真源统一**（code review 收敛）：`progression.effectiveAllyStats(unit, playerLevel)` 是我方折算的
+  唯一实现，`setupBattle` 与 `StatusPanel` 共用——状态页显示的数值即战斗里用的数值，不会各算各的。
+  门派显示名移入 `data/sects`（内容即数据，§5.2），不再写死在渲染层。
+- **折算曲线的已知取舍**（code review 记录，非 bug）：① 队友按主角等级折算 = 从 lv1 起偏弱、约 lv4 追平
+  旧静态值、更高级反超（郭靖静态 hp90/atk16/mp30 ≈ base×coeff 在 lv≈4）；② MP 按 §4 系数表——郭靖/黄蓉
+  **无 mp 系数**（mp1.3-1.5 是虚竹/任盈盈的专长），故 lv1 内力用裸基准、随等级回升，剧情战经 verify 实测仍可通；
+  ③ 华山论剑 `surviveRounds:3`「打不过也能过」，弱队友也能survive（e2e 实测胜）；④ 高练度玩家会碾压早期
+  黄河四鬼战——等级折算的固有特性（原版亦然），后续可加敌方等级下限，暂记为取舍。
+- **M5 仍待做**（转后续 workstream）：choice 交互 UI（ADR #27②）、结局系统、标题/存档入口、像素素材。
 
 ## 5. 数据驱动的内容格式
 

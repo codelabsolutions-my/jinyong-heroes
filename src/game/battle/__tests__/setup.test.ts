@@ -130,6 +130,104 @@ describe("setupBattle", () => {
     expect(huang.statuses).toEqual([]); // 初始无状态
   });
 
+  // M5 §2.1：我方按主角等级/队友系数折算，敌方静态（补 M4 简化 ADR #27①）
+  describe("按等级/系数折算属性", () => {
+    it("省略 playerLevel = lv1，主角向后兼容旧发布数值", () => {
+      const player = setupHoushan().combatants.find((c) => c.id === "player")!;
+      expect(player).toMatchObject({
+        maxHp: 50,
+        maxMp: 20,
+        attack: 10,
+        defense: 5,
+        speed: 10,
+        move: 4,
+      });
+    });
+
+    it("主角属性随等级上升（lv5 基准）", () => {
+      const s = setupBattle({
+        encounter: ENCOUNTERS["houshan-bandits"]!,
+        party: [CHARACTERS["player"]!],
+        characterTable: CHARACTERS,
+        skillTable: SKILLS,
+        seed: 42,
+        playerLevel: 5,
+      });
+      const player = s.combatants.find((c) => c.id === "player")!;
+      // baseStatsAtLevel(5): hp50+8*4=82, mp20+16=36, atk10+8=18, def5+4=9, spd10+2=12
+      expect(player).toMatchObject({
+        maxHp: 82,
+        maxMp: 36,
+        attack: 18,
+        defense: 9,
+        speed: 12,
+        move: 4,
+      });
+    });
+
+    it("带 coeff 的队友按主角同级基准×系数折算（郭靖 lv1）", () => {
+      const s = setupBattle({
+        encounter: {
+          ...ENCOUNTERS["houshan-bandits"]!,
+          allySpawns: [
+            { x: 1, y: 3 },
+            { x: 1, y: 5 },
+          ],
+        },
+        party: [CHARACTERS["player"]!, CHARACTERS["guojing"]!],
+        characterTable: CHARACTERS,
+        skillTable: SKILLS,
+        seed: 1,
+        playerLevel: 1,
+      });
+      const guo = s.combatants.find((c) => c.id === "guojing")!;
+      // coeff {hp:1.3,defense:1.2,speed:0.8} × base lv1 {50,20,10,5,10,4}
+      // → hp65, mp20, atk10, def6, spd8, move4（不再用静态 hp90）
+      expect(guo).toMatchObject({
+        maxHp: 65,
+        maxMp: 20,
+        attack: 10,
+        defense: 6,
+        speed: 8,
+        move: 4,
+      });
+      expect(guo.maxHp).not.toBe(CHARACTERS["guojing"]!.hp); // 已脱离静态值
+    });
+
+    it("敌方保持静态 CharacterDef，不随主角等级变", () => {
+      const s = setupBattle({
+        encounter: ENCOUNTERS["houshan-bandits"]!,
+        party: [CHARACTERS["player"]!],
+        characterTable: CHARACTERS,
+        skillTable: SKILLS,
+        seed: 42,
+        playerLevel: 20,
+      });
+      // houshan-bandits 敌方是拦路强盗（bandit）
+      const bandit = CHARACTERS["bandit"]!;
+      const enemy = s.combatants.find((c) => c.side === "enemy")!;
+      expect(enemy.maxHp).toBe(bandit.hp);
+      expect(enemy.attack).toBe(bandit.attack);
+    });
+
+    it("无 coeff 的我方单位走静态属性", () => {
+      // bandit 作我方战友（无 coeff）→ 静态 hp14，不受 playerLevel 影响
+      const s = setupBattle({
+        encounter: {
+          ...ENCOUNTERS["houshan-bandits"]!,
+          allies: [{ charId: "bandit", x: 2, y: 5 }],
+        },
+        party: [CHARACTERS["player"]!],
+        characterTable: CHARACTERS,
+        skillTable: SKILLS,
+        seed: 1,
+        playerLevel: 20,
+      });
+      const ally = s.combatants.find((c) => c.id === "ally-bandit")!;
+      expect(ally.maxHp).toBe(CHARACTERS["bandit"]!.hp);
+    });
+  });
+
   it("未知 charId / 武学抛错", () => {
     expect(() =>
       setupBattle({

@@ -1,6 +1,7 @@
 import type { CharacterDef } from "@/data/characters";
 import type { EncounterDef } from "@/data/battles";
 import type { SkillDef } from "@/data/skills";
+import { effectiveAllyStats, type StatBlock } from "@/game/progression";
 import { turnOrder } from "./turnOrder";
 import { type BattleState, type Combatant, type SkillRuntime } from "./types";
 
@@ -17,6 +18,24 @@ export interface SetupInput {
   /** 武学 id → SkillDef */
   skillTable: Record<string, SkillDef>;
   seed: number;
+  /**
+   * 主角当前历练等级（M5 §2.1）。**我方**单位据此动态折算有效属性：
+   * 主角 = 该等级裸装基准；带 `coeff` 的队友/战友军 = 基准×系数。
+   * **敌方保持静态 `CharacterDef`**。省略 = 1（lv1 基准 = 旧发布数值，向后兼容）。
+   */
+  playerLevel?: number;
+}
+
+/** 从静态 CharacterDef 取属性块（敌方走这条；我方折算走 progression.effectiveAllyStats）。 */
+function staticStats(def: CharacterDef): StatBlock {
+  return {
+    hp: def.hp,
+    mp: def.mp,
+    attack: def.attack,
+    defense: def.defense,
+    speed: def.speed,
+    move: def.move,
+  };
 }
 
 function expandSkills(
@@ -45,6 +64,7 @@ function makeCombatant(
   x: number,
   y: number,
   skillTable: Record<string, SkillDef>,
+  stats: StatBlock,
 ): Combatant {
   return {
     id,
@@ -53,14 +73,14 @@ function makeCombatant(
     color: def.color,
     x,
     y,
-    hp: def.hp,
-    maxHp: def.hp,
-    mp: def.mp,
-    maxMp: def.mp,
-    attack: def.attack,
-    defense: def.defense,
-    speed: def.speed,
-    move: def.move,
+    hp: stats.hp,
+    maxHp: stats.hp,
+    mp: stats.mp,
+    maxMp: stats.mp,
+    attack: stats.attack,
+    defense: stats.defense,
+    speed: stats.speed,
+    move: stats.move,
     skills: expandSkills(def.skills, skillTable),
     statuses: [],
   };
@@ -68,6 +88,7 @@ function makeCombatant(
 
 export function setupBattle(input: SetupInput): BattleState {
   const { encounter, party, characterTable, skillTable, seed } = input;
+  const playerLevel = input.playerLevel ?? 1;
 
   if (party.length > encounter.allySpawns.length) {
     throw new Error(
@@ -79,7 +100,15 @@ export function setupBattle(input: SetupInput): BattleState {
   party.forEach((def, i) => {
     const spawn = encounter.allySpawns[i]!;
     combatants.push(
-      makeCombatant(def, "ally", def.id, spawn.x, spawn.y, skillTable),
+      makeCombatant(
+        def,
+        "ally",
+        def.id,
+        spawn.x,
+        spawn.y,
+        skillTable,
+        effectiveAllyStats(def, playerLevel),
+      ),
     );
   });
   // 剧情战友军（郭靖/黄蓉等）：ally 侧，固定坐标，id 前缀 ally- 避免与队伍撞
@@ -87,14 +116,30 @@ export function setupBattle(input: SetupInput): BattleState {
     const def = characterTable[a.charId];
     if (!def) throw new Error(`setup: 未知战友 charId ${a.charId}`);
     combatants.push(
-      makeCombatant(def, "ally", `ally-${a.charId}`, a.x, a.y, skillTable),
+      makeCombatant(
+        def,
+        "ally",
+        `ally-${a.charId}`,
+        a.x,
+        a.y,
+        skillTable,
+        effectiveAllyStats(def, playerLevel),
+      ),
     );
   });
   encounter.enemies.forEach((e, i) => {
     const def = characterTable[e.charId];
     if (!def) throw new Error(`setup: 未知敌方 charId ${e.charId}`);
     combatants.push(
-      makeCombatant(def, "enemy", `enemy-${i}`, e.x, e.y, skillTable),
+      makeCombatant(
+        def,
+        "enemy",
+        `enemy-${i}`,
+        e.x,
+        e.y,
+        skillTable,
+        staticStats(def),
+      ),
     );
   });
 

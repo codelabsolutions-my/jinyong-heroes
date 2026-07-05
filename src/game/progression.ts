@@ -78,6 +78,31 @@ export function companionStats(
   };
 }
 
+/**
+ * 我方单位某主角等级下的**有效属性**（M5 §2.1，队友系数/等级折算的唯一真源）：
+ * 主角（id==="player"）→ 该等级裸装基准；带 `coeff` 的队友/战友军 → 基准×系数；
+ * 其余（无 coeff 的我方）→ 静态。战斗 `setupBattle` 与状态页 `StatusPanel` 共用此函数，
+ * 保证「状态页看到的数值」= 「战斗里用的数值」（不各算各的）。敌方不走此函数，保持静态。
+ *
+ * 入参按结构类型取用（`id`/`coeff` + StatBlock 字段），`CharacterDef` 天然满足，
+ * 避免 game→data 的类型环依赖。
+ */
+export function effectiveAllyStats(
+  unit: StatBlock & { id: string; coeff?: CompanionCoeff },
+  playerLevel: number,
+): StatBlock {
+  if (unit.id === "player") return baseStatsAtLevel(playerLevel);
+  if (unit.coeff) return companionStats(playerLevel, unit.coeff);
+  return {
+    hp: unit.hp,
+    mp: unit.mp,
+    attack: unit.attack,
+    defense: unit.defense,
+    speed: unit.speed,
+    move: unit.move,
+  };
+}
+
 /** 从 level 升到 level+1 所需历练；满级返回 null。 */
 export function expToNext(level: number): number | null {
   if (level >= MAX_LEVEL) return null;

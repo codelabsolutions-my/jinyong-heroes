@@ -79,6 +79,19 @@ export function hasFlag(state: GameState, flag: string): boolean {
   return state.flags[flag] === true;
 }
 
+/**
+ * 正邪值 → 称号档位（M5，状态页展示用）。档位名与阈值见
+ * CHARACTERS_AND_SKILLS §5：大侠 ≥60 / 侠士 ≥20 / 无名 / 枭雄 ≤-20 / 魔头 ≤-60。
+ * 纯函数，无副作用；UI 只读。（后续按称号挂 NPC 闲聊池须复用此档名。）
+ */
+export function moralityLabel(morality: number): string {
+  if (morality >= 60) return "大侠";
+  if (morality >= 20) return "侠士";
+  if (morality > -20) return "无名";
+  if (morality > -60) return "枭雄";
+  return "魔头";
+}
+
 /** 调整正邪值（clamp 在 [MORALITY_MIN, MORALITY_MAX]）。返回调整后的值。 */
 export function adjustMorality(state: GameState, delta: number): number {
   state.morality = Math.max(

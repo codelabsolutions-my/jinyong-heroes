@@ -5,6 +5,7 @@ import { ExplorationScene } from "@/scenes/ExplorationScene";
 import { DialogueBox } from "@/ui/DialogueBox";
 import { HintBar } from "@/ui/HintBar";
 import { JournalPanel } from "@/ui/JournalPanel";
+import { StatusPanel } from "@/ui/StatusPanel";
 import { Toast } from "@/ui/Toast";
 import { CLUES } from "@/data/clues";
 import { DIALOGUES } from "@/data/dialogues";
@@ -26,7 +27,7 @@ import { SaveLoadError, type KVStorage, loadGame, saveGame } from "@/game/save";
 import { type GameState, newGame, setFlag } from "@/game/state";
 import { STORY_EVENTS } from "@/data/story";
 import { BOOKS } from "@/data/books";
-import { applyStoryEffects } from "@/game/progression";
+import { applyStoryEffects, charLevel } from "@/game/progression";
 import {
   eventDoneFlag,
   runEvent,
@@ -40,13 +41,13 @@ import type {
   StoryRunState,
 } from "@/game/story/types";
 
-export type GameMode = "explore" | "dialogue" | "journal" | "battle";
+export type GameMode = "explore" | "dialogue" | "journal" | "status" | "battle";
 
 /** 胜利后置的 flag 约定（对话变体据此不再重复触发同一场战斗） */
 export const battleWonFlag = (battleId: string): string =>
   `battle-won:${battleId}`;
 
-const EXPLORE_HINT = "空格 对话 · J 日志 · K 存档 · L 读档";
+const EXPLORE_HINT = "空格 对话 · C 状态 · J 日志 · K 存档 · L 读档";
 
 /**
  * 游戏总控：持有 GameState、场景与 UI，按模式路由输入。
@@ -62,6 +63,7 @@ export class Game {
   private readonly worldSlot = new Container();
   private readonly dialogueBox: DialogueBox;
   private readonly journal: JournalPanel;
+  private readonly status: StatusPanel;
   private readonly toast: Toast;
   private readonly hintBar: HintBar;
   private activeDialogue: ActiveDialogue | null = null;
@@ -89,6 +91,7 @@ export class Game {
     this.view = new Container();
     this.dialogueBox = new DialogueBox(screenWidth, screenHeight);
     this.journal = new JournalPanel(screenWidth, screenHeight);
+    this.status = new StatusPanel(screenWidth, screenHeight);
     this.toast = new Toast(screenWidth);
     this.hintBar = new HintBar(screenWidth, screenHeight);
     this.hintBar.set(EXPLORE_HINT);
@@ -98,6 +101,7 @@ export class Game {
       this.hintBar.view,
       this.dialogueBox.view,
       this.journal.view,
+      this.status.view,
       this.toast.view,
     );
 
@@ -146,6 +150,9 @@ export class Game {
       case "journal":
         this.updateJournal();
         break;
+      case "status":
+        this.updateStatus();
+        break;
       case "battle":
         this.updateBattle(deltaMS);
         break;
@@ -169,10 +176,12 @@ export class Game {
 
     if (this.input.takePress("Space", "Enter")) {
       this.tryStartDialogue();
+    } else if (this.input.takePress("KeyC")) {
+      this.status.open(this.state);
+      this.openPanel("status", "C / Esc 关闭");
     } else if (this.input.takePress("KeyJ")) {
       this.journal.open(this.state, CLUES);
-      this.mode = "journal";
-      this.hintBar.set("J / Esc 关闭");
+      this.openPanel("journal", "J / Esc 关闭");
     } else if (this.input.takePress("KeyK")) {
       saveGame(this.storage, this.state);
       this.toast.show("已存档");
@@ -249,6 +258,8 @@ export class Game {
         characterTable: CHARACTERS,
         skillTable: SKILLS,
         seed: Math.floor(Math.random() * 0x7fffffff),
+        // M5 §2.1：我方按主角历练等级/队友系数折算（敌方仍静态）
+        playerLevel: charLevel(this.state, "player"),
       });
       this.battle = new BattleController(
         this.input,
@@ -405,11 +416,24 @@ export class Game {
   }
 
   private updateJournal() {
-    if (this.input.takePress("KeyJ", "Escape")) {
-      this.journal.close();
-      this.mode = "explore";
-      this.hintBar.set(EXPLORE_HINT);
-    }
+    if (this.input.takePress("KeyJ", "Escape")) this.closePanel(this.journal);
+  }
+
+  private updateStatus() {
+    if (this.input.takePress("KeyC", "Escape")) this.closePanel(this.status);
+  }
+
+  /** 叠加面板打开：设模式 + 提示条（面板自身的 open() 由调用方先调）。 */
+  private openPanel(mode: GameMode, hint: string) {
+    this.mode = mode;
+    this.hintBar.set(hint);
+  }
+
+  /** 叠加面板关闭：收面板 + 回探索 + 复位提示条（journal/status 共用）。 */
+  private closePanel(panel: { close(): void }) {
+    panel.close();
+    this.mode = "explore";
+    this.hintBar.set(EXPLORE_HINT);
   }
 
   private tryStartDialogue() {
