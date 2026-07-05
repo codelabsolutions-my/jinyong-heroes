@@ -6,8 +6,7 @@ import type { StoryEvent } from "@/game/story/types";
  * 不 switchMap；地图行走范式见射雕线）。
  *
  * 正邪抉择：战胜太岳四侠后「放走 / 扭送」——放走 +8 侠名、扭送 -5。
- * ⚠️ Game 目前 choice 自动选 option[0]（无选择 UI，M3 遗留），故游戏内默认走「放走」；
- * story 数据两支俱全（runner/单测可验两条），交互选择 UI 是后续 chunk。
+ * 玩家经交互抉择菜单（ADR #31，Game storyChoice 模式）↑↓ 选、空格确认；两支 story 数据俱全。
  */
 export const yuanyangLine: StoryEvent = {
   id: "yuanyang-line",

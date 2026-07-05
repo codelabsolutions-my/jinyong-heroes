@@ -35,6 +35,7 @@ async function boot() {
     party: [...game.state.party],
     reputation: { ...game.state.reputation },
     storyActive: game.isStoryActive,
+    storyChoice: game.storyChoiceSnapshot(),
     battle: game.battleSnapshot(),
   });
 }

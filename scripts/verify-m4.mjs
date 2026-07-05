@@ -87,6 +87,7 @@ try {
   let sawStory = false;
   let battleCount = 0;
   let wasBattle = false;
+  let choiceVerified = false;
   let guard = 0;
   while (guard++ < 900) {
     d = await debug(page);
@@ -94,6 +95,26 @@ try {
     if (d.mode === "battle" && !wasBattle) battleCount++; // 进入一场新战斗
     wasBattle = d.mode === "battle";
     if (sawStory && !d.storyActive && d.mode === "explore") break;
+    if (d.mode === "storyChoice") {
+      // 抉择菜单：先证交互（↓选到扭送、↑回放走），再确认放走(option0)
+      if (!choiceVerified) {
+        check(
+          "抉择菜单弹出且≥2 选项（放走/扭送）",
+          (d.storyChoice?.options?.length ?? 0) >= 2,
+          JSON.stringify(d.storyChoice?.options),
+        );
+        await page.screenshot({ path: `${SHOT_DIR}/m4-choice.png` });
+        await tap(page, "ArrowDown");
+        d = await debug(page);
+        check("↓ 选到第 2 项", d.storyChoice?.selected === 1, `selected=${d.storyChoice?.selected}`);
+        await tap(page, "ArrowUp");
+        d = await debug(page);
+        check("↑ 回到第 1 项", d.storyChoice?.selected === 0, `selected=${d.storyChoice?.selected}`);
+        choiceVerified = true;
+      }
+      await tap(page, "Space"); // 确认放走
+      continue;
+    }
     if (d.mode === "dialogue") {
       await tap(page, "Space");
       continue;
@@ -107,6 +128,7 @@ try {
 
   d = await debug(page);
   check("鸳鸯刀线曾点火", sawStory);
+  check("经历了交互抉择菜单", choiceVerified);
   check("经历两场战斗（太岳四侠 + 卓天雄）", battleCount >= 2, `battles=${battleCount}`);
   check("剧情落幕回探索", d.mode === "explore", `mode=${d.mode}`);
   check(

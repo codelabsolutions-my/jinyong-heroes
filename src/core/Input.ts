@@ -77,6 +77,15 @@ export class Input {
     this.justPressed.clear();
   }
 
+  /**
+   * 清空当前按住的移动方向。模式切换后调用，避免"惯性走一步"——
+   * 例：按住 ↓ 移动抉择菜单光标、按空格确认，若不清空，回到 explore 后残留的 ↓
+   * 会让主角立刻往下走一格（code review 发现）。松开再按方可继续移动。
+   */
+  clearDirections() {
+    this.directionStack = [];
+  }
+
   destroy() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);

@@ -6,6 +6,7 @@ import { DialogueBox } from "@/ui/DialogueBox";
 import { HintBar } from "@/ui/HintBar";
 import { JournalPanel } from "@/ui/JournalPanel";
 import { StatusPanel } from "@/ui/StatusPanel";
+import { ChoiceBox } from "@/ui/ChoiceBox";
 import { Toast } from "@/ui/Toast";
 import { CLUES } from "@/data/clues";
 import { DIALOGUES } from "@/data/dialogues";
@@ -35,13 +36,15 @@ import {
   startEvent,
 } from "@/game/story/runner";
 import type {
+  StoryChoiceOption,
   StoryEffect,
   StoryEvent,
   StoryInput,
   StoryRunState,
 } from "@/game/story/types";
 
-export type GameMode = "explore" | "dialogue" | "journal" | "status" | "battle";
+export type GameMode =
+  "explore" | "dialogue" | "journal" | "status" | "storyChoice" | "battle";
 
 /** 胜利后置的 flag 约定（对话变体据此不再重复触发同一场战斗） */
 export const battleWonFlag = (battleId: string): string =>
@@ -64,7 +67,11 @@ export class Game {
   private readonly dialogueBox: DialogueBox;
   private readonly journal: JournalPanel;
   private readonly status: StatusPanel;
+  private readonly choiceBox: ChoiceBox;
   private readonly toast: Toast;
+  // 当前抉择的可选项（runner 按 when 过滤后的），选中下标 → option 回喂 runner
+  private pendingChoice: StoryChoiceOption[] = [];
+  private pendingChoicePrompt = "";
   private readonly hintBar: HintBar;
   private activeDialogue: ActiveDialogue | null = null;
   private battle: BattleController | null = null;
@@ -92,6 +99,7 @@ export class Game {
     this.dialogueBox = new DialogueBox(screenWidth, screenHeight);
     this.journal = new JournalPanel(screenWidth, screenHeight);
     this.status = new StatusPanel(screenWidth, screenHeight);
+    this.choiceBox = new ChoiceBox(screenWidth, screenHeight);
     this.toast = new Toast(screenWidth);
     this.hintBar = new HintBar(screenWidth, screenHeight);
     this.hintBar.set(EXPLORE_HINT);
@@ -102,6 +110,7 @@ export class Game {
       this.dialogueBox.view,
       this.journal.view,
       this.status.view,
+      this.choiceBox.view,
       this.toast.view,
     );
 
@@ -152,6 +161,9 @@ export class Game {
         break;
       case "status":
         this.updateStatus();
+        break;
+      case "storyChoice":
+        this.updateStoryChoice();
         break;
       case "battle":
         this.updateBattle(deltaMS);
@@ -352,11 +364,16 @@ export class Game {
         }
         break;
       case "choice":
-        // M3 射雕线无 choice；出现则自动选第一个可选项，避免卡住（选择 UI 留待后续）
-        this.advanceStory({
-          type: "choice",
-          option: res.yield.options[0]?.option ?? 0,
-        });
+        // 弹交互抉择菜单（ADR #31）：玩家 ↑↓ 选、空格确认 → advanceStory({type:"choice",option})。
+        // runner 已按 when 过滤好可选项；选中下标经 pendingChoice 映射回原始 option。
+        this.pendingChoice = res.yield.options;
+        this.pendingChoicePrompt = res.yield.prompt ?? "请抉择";
+        this.choiceBox.open(
+          this.pendingChoicePrompt,
+          this.pendingChoice.map((o) => o.label),
+        );
+        this.mode = "storyChoice";
+        this.hintBar.set("↑↓ 选择 · 空格 确认");
         break;
       case "end":
         this.endStory();
@@ -421,6 +438,22 @@ export class Game {
 
   private updateStatus() {
     if (this.input.takePress("KeyC", "Escape")) this.closePanel(this.status);
+  }
+
+  private updateStoryChoice() {
+    if (this.input.takePress("ArrowUp", "KeyW")) {
+      this.choiceBox.move(-1, this.pendingChoicePrompt);
+    } else if (this.input.takePress("ArrowDown", "KeyS")) {
+      this.choiceBox.move(1, this.pendingChoicePrompt);
+    } else if (this.input.takePress("Space", "Enter")) {
+      const chosen = this.pendingChoice[this.choiceBox.selectedIndex];
+      this.choiceBox.close();
+      this.pendingChoice = [];
+      // 清掉可能仍按住的方向键，避免确认后主角"惯性"走一步（code review）
+      this.input.clearDirections();
+      // 回喂 runner 该分支的原始 option 下标，继续推进剧情
+      this.advanceStory({ type: "choice", option: chosen?.option ?? 0 });
+    }
   }
 
   /** 叠加面板打开：设模式 + 提示条（面板自身的 open() 由调用方先调）。 */
@@ -501,5 +534,15 @@ export class Game {
   /** e2e / 调试探针：是否正在演一条剧情线 */
   get isStoryActive(): boolean {
     return this.storyRun !== null;
+  }
+
+  /** e2e / 调试探针：当前抉择菜单（非 storyChoice 模式为 null） */
+  storyChoiceSnapshot() {
+    if (this.mode !== "storyChoice") return null;
+    return {
+      prompt: this.pendingChoicePrompt,
+      options: this.pendingChoice.map((o) => o.label),
+      selected: this.choiceBox.selectedIndex,
+    };
   }
 }
