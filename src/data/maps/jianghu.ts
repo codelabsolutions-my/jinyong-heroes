@@ -56,8 +56,8 @@ export const jianghu: MapData = {
     { x: 4, y: 9, toMap: "huashan-summit", toX: 3, toY: 6 },
     // 后山小径：落点 = 后山 spawn
     { x: 30, y: 11, toMap: "houshan-path", toX: 2, toY: 8 },
-    // 中原大地图（世界地图集入口，(5,19) 在 verify-m5 东行路径之外）
-    { x: 5, y: 19, toMap: "zhongyuan", toX: 2, toY: 2 },
+    // 注：中原大地图(世界地图集)入口已隔离（ADR #34）。world.ts 的 42 张自动生成
+    // 空壳未按剧情设计，暂移出可玩图谱；照 WORLD_ATLAS 重画真图后再从 zhongyuan 接回。
   ],
   npcs: [],
 };
