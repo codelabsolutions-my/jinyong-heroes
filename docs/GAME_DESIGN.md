@@ -7,6 +7,8 @@
 > 配套细化文档：**剧情**（十四线章节流程、结局矩阵）→ `STORY_BIBLE.md`；
 > **数值**（属性/成长/队友/武学表）→ `CHARACTERS_AND_SKILLS.md`。三份冲突时，
 > 本文档管"系统规则"，那两份管各自领域的细节。
+> **内容生产桥（ADR #34）**：地理 → `WORLD_ATLAS.md`；人物落位 → `ROSTER.md`；
+> 落地配方 → `CONTENT_FORMAT.md`；结局判定 → `ENDINGS.md`；每线编排 → `docs/lines/NN-*.md`。
 
 ---
 

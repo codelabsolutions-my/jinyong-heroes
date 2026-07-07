@@ -7,7 +7,27 @@
 
 ---
 
-## 0. 当前状态（2026-07-05）
+## 0′. 方向变更 — 内容优先（2026-07-07，ADR #34）⭐ 先读这段
+
+M5 纵向切片跑通（能从新游戏玩到一个结局）后，判断"引擎已够、缺的是**被设计过**的内容"。
+**暂停堆功能，先把全 14 线的内容层设计成册（content bible）再逐线建。** 已完成：
+
+- **content bible 已成册**：`WORLD_ATLAS.md`（60 张规范图=地理真源）、`ROSTER.md`（队友落位+剧情 NPC）、
+  `CONTENT_FORMAT.md`（bible→`src/data` 落地配方 + 真 StoryStep schema）、`ENDINGS.md`（`decideEnding` 四结局）、
+  `docs/lines/01-14-*.md`（**14 条线各一份生产 spec**，01 鸳鸯刀为黄金模板）。
+- **生成的空壳世界已隔离**：`data/maps/world.ts` 的 42 张自动生成图移出可玩图谱（撤 gate + 注册），
+  文件与 `gen-world-maps.mjs` 留档；照 atlas 逐张重画真图后用同一 id 原地登记回来。
+
+**下一步不再是"M5 补 X"，而是"逐线建内容"**（每条线一个 workstream）：
+选一条线 → 读 `docs/lines/NN-*.md` → 按 `CONTENT_FORMAT §4` 步骤（建图/摆 NPC/写事件链/填数值/天书）
+→ 单测（content.test 引用完整性 + runner + balance）+ e2e `verify-<line>.mjs` → code review → merge。
+建议顺序：T1 线（鸳鸯刀已实装、补白马/雪山）先转正打样，再 T2、T3（见 STORY_BIBLE §4 排期）。
+另有技术债：起始村 id `xiake-island` 应重命名 `wuming-cun`（改 START_MAP_ID，撞 verify-m1..m5 需同步）；
+`SECTS`/队友表按 ROSTER §4 补齐（明教/华山派/红花会…、袁承志/何铁手等）。
+
+---
+
+## 0. 历史状态（2026-07-05，M5 切片完成时）
 
 - **main：M0+M1+M2+M3+M4 已完成并 squash-merge**。工作树应干净、无遗留分支/worktree。
 - **242 个单测全过**；`npm test && npm run lint && npx tsc --noEmit && npm run build` 全绿。
